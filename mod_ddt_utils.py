@@ -7,10 +7,7 @@ import mod_db_manager
 
 from operator import itemgetter
 from copy import deepcopy
-
-if mod_globals.os != 'android':
-    import serial
-
+import serial
 try:
     import cPickle as pickle
 except:
@@ -143,7 +140,7 @@ def loadECUlist():
                                         ail.append(air)
                         eculist[Address]["targets"][href]['AutoIdents'] = ail
         pickle.dump(eculist, open(eculistcache, "wb"))  # and save cache #dbaccess
-
+    
     return eculist
 
 

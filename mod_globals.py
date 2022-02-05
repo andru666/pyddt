@@ -51,7 +51,6 @@ user_data_dir = "./"
 cache_dir = "./cache/"
 log_dir = "./logs/"
 dumps_dir = "./dumps/"
-csv_dir = './csv/'
 ddt_arc = ""
 ddtroot = ".."  # parent folder for backward compatibility. for 9n and up use ../DDT2000data
 clip_arc = ""
