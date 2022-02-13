@@ -12,6 +12,7 @@ if platform != 'android':
     Config.set('graphics', 'top',  50)
 from kivy.core.window import Window
 from kivy.app import App
+from mod_ddt import DDT
 from kivy.uix.button import Button
 from kivy.uix.label import Label
 from kivy.uix.scrollview import ScrollView
@@ -32,6 +33,11 @@ else:
 __all__ = 'install_android'
 
 mod_globals.os = platform
+
+if mod_globals.os != 'android':
+    if Window.size[0]>Window.size[1]: ws = Window.size[0]/Window.size[1]*1.2
+    else: ws = Window.size[1]/Window.size[0]*1.2
+    Window.size = (Window.size[0], Window.size[1]*ws)
 
 if mod_globals.os == 'android':
     try:
@@ -86,101 +92,160 @@ def set_orientation_landscape():
         activity = AndroidPythonActivity.mActivity
         activity.setRequestedOrientation(AndroidActivityInfo.SCREEN_ORIENTATION_LANDSCAPE)
 
-
 def set_orientation_portrait():
     if mod_globals.os == 'android':
         activity = AndroidPythonActivity.mActivity
         activity.setRequestedOrientation(AndroidActivityInfo.SCREEN_ORIENTATION_PORTRAIT)
-
 
 class MainApp(App):
     
     def __init__(self):
         self.button = {}
         self.textInput = {}
+        self.ptree = {}
         self.eculist = mod_ddt_utils.loadECUlist()
         super(MainApp, self).__init__()
+        Window.bind(on_keyboard=self.key_handler)
+
+    def key_handler(self, window, keycode1, keycode2, text, modifiers):
+        global resizeFont
+        if resizeFont:
+            return True
+        if (keycode1 == 45 or keycode1 == 269) and mod_globals.fontSize > 10:
+            mod_globals.fontSize = mod_globals.fontSize - 1
+            resizeFont = True
+            self.stop()
+            return True
+        if (keycode1 == 61 or keycode1 == 270) and mod_globals.fontSize < 40:
+            mod_globals.fontSize = mod_globals.fontSize + 1
+            resizeFont = True
+            self.stop()
+            return True
+        if keycode1 == 27:
+            exit()
+        return False
 
     def build(self):
         layout = GridLayout(cols=1, padding=10, spacing=20, size_hint=(1.0, None))
         layout.bind(minimum_height=layout.setter('height'))
         
         layout.add_widget(Label(text='PyDDT', font_size=(fs*2,  'dp'), height=(fs * 2,  'dp'), size_hint=(1, None)))
-        
-        layout.add_widget(Button(text= 'start test', size_hint=(1, None), on_press=self.start_test, height=(fs * 2,  'dp')))
-       
-       
-       
+        try:
+            self.archive = str(mod_globals.ddtroot).rpartition('/')[2]
+        except:
+            self.archive = str(mod_globals.ddtroot).rpartition('\\')[2]
+        if self.archive == '.' or self.archive == '..': self.archive = 'NOT BASE DDT2000'
+        layout.add_widget(Label(text='DB archive : ' + self.archive, font_size=(fs*0.9,  'dp'), height=(fs,  'dp'), multiline=True, size_hint=(1, None)))
+        layout.add_widget(Button(text= 'Scan all ECUs', size_hint=(1, None), on_press=self.finish, height=(fs * 2,  'dp')))
+        layout.add_widget(self.in_car())
+        layout.add_widget(self.make_bt_device_entry())
+        layout.add_widget(self.make_box_switch('Demo mode', mod_globals.opt_demo))
+        layout.add_widget(self.make_box_switch('Generate logs', True if len(mod_globals.opt_log) > 0 else False))
+        layout.add_widget(self.make_input('Log name', mod_globals.opt_log))
+        layout.add_widget(self.make_input('Font size', str(mod_globals.fontSize)))
         root = ScrollView(size_hint=(1, 1), do_scroll_x=False, pos_hint={'center_x': 0.5,
          'center_y': 0.5})
         root.add_widget(layout)
         return root
 
-    def start_test(self, dt):
-        self.ptree = {}
-        self.pl = mod_ddt_utils.ddtProjects()
+    def finish(self, instance):
+        mod_globals.opt_demo = self.button['Demo mode'].active
+        if self.button['Generate logs'].active:
+            mod_globals.opt_log = 'log.txt' if self.textInput['Log name'].text == '' else self.textInput['Log name'].text
+        else:
+            mod_globals.opt_log = 'log.txt'
+        if 'wifi' in self.mainbutton.text.lower():
+            mod_globals.opt_port = '192.168.0.10:35000'
+        else:
+            bt_device = self.mainbutton.text.split('>')
+            if mod_globals.os != 'android':
+                try:
+                    mod_globals.opt_port = bt_device[1]
+                except:
+                    mod_globals.opt_port = bt_device[0]
+            else:
+                mod_globals.opt_port = bt_device[0]
+            if len(bt_device) > 1:
+                mod_globals.opt_dev_address = bt_device[-1]
+            mod_globals.bt_dev = self.mainbutton.text
+        try:
+            mod_globals.fontSize = int(self.textInput['Font size'].text)
+        except:
+            mod_globals.fontSize = 20
+        mod_globals.opt_car = self.carbutton.text
+        self.stop()
+
+    def in_car(self):
+        glay = GridLayout(cols=2, height=(fs * 3,  'dp'), size_hint=(1, None), padding=10, spacing=10)
+        label1 = Label(text='  Car', halign='left', valign='middle', size_hint=(1, None), height=(fs * 2,  'dp'), font_size=(fs,  'dp'))
+        label1.bind(size=label1.setter('text_size'))
+        glay.add_widget(label1)
+        self.dropdown = DropDown(size_hint=(1, None), height=(fs * 2,  'dp'))
+        avtosd = self.avtos()
+        for avto in avtosd:
+            btn = Button(text=avto, size_hint_y=None, height=(fs * 2,  'dp'))
+            btn.bind(on_release=lambda btn: self.popup_in_car(btn.text))
+            self.dropdown.add_widget(btn)
+        self.carbutton = Button(text='ALL CARS', size_hint=(1, None), height=(fs * 2,  'dp'))
+        self.carbutton.bind(on_release=self.dropdown.open)
+        self.dropdown.bind(on_select=lambda instance, x: setattr(self.carbutton, 'text', x))
+        glay.add_widget(self.carbutton)
+        return glay
+
+    def popup_in_car(self, instance):
         layout = GridLayout(cols=1, padding=10, spacing=20, size_hint=(1.0, None))
-        self.proj_path = 'vehicles/projects.xml'
-        dropdown = DropDown(size_hint=(1, None), height=(fs * 2,  'dp'))
-        dropdown_m = DropDown(size_hint=(1, None), height=(fs * 2,  'dp'))
+        layout.bind(minimum_height=layout.setter('height'))
+        avtosd = self.avtos()
+        for key in avtosd:
+            if key == instance:
+                for car in avtosd[key]:
+                    btn = Button(text=car[3]+' : '+car[4][0], height=(fs * 3,  'dp'), size_hint_y=None)
+                    layout.add_widget(btn)
+                    btn.bind(on_release=lambda btn: self.press_car(btn.text))
+        root = ScrollView(size_hint=(1, 1), do_scroll_x=False, pos_hint={'center_x': 0.5,'center_y': 0.5})
+        root.add_widget(layout)
+        self.popup = Popup(title=instance, content=root, size=(Window.size[0], Window.size[1]), size_hint=(None, None), auto_dismiss=True)
+        self.popup.open()
+
+    def press_car(self, btn):
+        self.popup.dismiss()
+        self.dropdown.select(btn)
+        
+    def avtos(self):
+        self.pl = mod_ddt_utils.ddtProjects()
         for m in self.pl.plist:
             self.ptree[m['name']] = []
-            btn = Button(text=m['name'], size_hint_y=None, height=(fs * 2,  'dp'))
-            btn.bind(on_release=lambda btn: dropdown.select(btn.text))
-            dropdown.add_widget(btn)
-
-            
-            
-            #self.ptree.insert('','end',iid=m['name'], text=m['name'], open=True)
-            #layout.add_widget(Label (text=m['name'], size_hint=(1, None)))
             for c in m['list']:
-                self.ptree[m['name']].append(c['name'])
-                #self.ptree.insert(m['name'], 'end', iid = c['code'], text = c['code'], values=[c['name'],c['segment'],c['addr']])
-                """#layout.add_widget(Label (text=c['name'], size_hint=(1, None)))
-                #self.ptree[m['name']].append((c['name'])) 
-                if m['name'] == self.mainbutton:
-                    
-                    
-                    """
-                #self.ptree.insert(m['name'], 'end', iid = c['code'], text = c['code'], values=[c['name'],c['segment'],c['addr']])
+                self.ptree[m['name']].append([m['name'], 'end', c['code'], c['code'], [c['name'],c['segment'],c['addr']]])
+        return self.ptree
+
+    def make_box_switch(self, str1, active, callback = None):
         
-        
-        self.mainbutton = Button(text='Select', size_hint=(1, None), height=(fs * 2,  'dp'))
-        self.mainbutton.bind(on_release=dropdown.open)
-        dropdown.bind(on_select=lambda instance, x: setattr(self.mainbutton, 'text', x))
-        
-        btn_m = Button(text=str(filter(lambda x: self.mainbutton.text == 'RENAULT', self.ptree)), size_hint_y=None, height=(fs * 2,  'dp'))
-        btn_m.bind(on_release=lambda btn_m: dropdown_m.select(btn_m.text))
-        dropdown_m.add_widget(btn_m)
-        """for key in self.ptree:
-            
-            
-            if key == (self.mainbutton.text = lambda self.mainbutton.text: (self.mainbutton.text)) :
-                btn_m = Button(text=key, size_hint_y=None, height=(fs * 2,  'dp'))
-                btn_m.bind(on_release=lambda btn_m: dropdown_m.select(btn_m.text))
-                dropdown_m.add_widget(btn_m)"""
-            
-        self.mainbutton_m = Button(text='Select', size_hint=(1, None), height=(fs * 2,  'dp'))
-        self.mainbutton_m.bind(on_release=dropdown_m.open)
-        dropdown_m.bind(on_select=lambda instance, x: setattr(self.mainbutton_m, 'text', x, clear_widgets()))
-        layout.add_widget(self.mainbutton)
-        layout.add_widget(self.mainbutton_m)
-        
-        layout.add_widget(Label (text='test', size_hint=(1, None)))
-        root = ScrollView(size_hint=(1, 1), do_scroll_x=False, pos_hint={'center_x': 0.5,
-         'center_y': 0.5})
-        root.add_widget(layout)
-        popup_load = Popup(title='test', content=root, size=(500, 500), size_hint=(None, None), auto_dismiss=True)
-        popup_load.open()
+        label1 = Label(text=str1, halign='left', valign='middle', size_hint=(1, None), height=(fs * 2,  'dp'), font_size=(fs,  'dp'))
+        sw = Switch(active=active, size_hint=(1, None), height=(fs * 2,  'dp'))
+        if callback:
+            sw.bind(active=callback)
+        self.button[str1] = sw
+        label1.bind(size=label1.setter('text_size'))
+        glay = GridLayout(cols=2, height=(fs * 3,  'dp'), size_hint=(1, None), padding=10, spacing=10)
+        glay.add_widget(label1)
+        glay.add_widget(sw)
+        return glay
 
     def make_bt_device_entry(self):
         
-        
-        label1 = Label(text='Chosse avto', halign='left', valign='middle', size_hint=(1, None), height=(fs,  'dp'), font_size=(fs,  'dp'))
-        """self.bt_dropdown = DropDown(size_hint=(1, None), height=(fs * 2,  'dp'))
+        ports = mod_ddt_utils.getPortList()
+        label1 = Label(text='ELM port', halign='left', valign='middle', size_hint=(1, None), height=(fs,  'dp'), font_size=(fs,  'dp'))
+        self.bt_dropdown = DropDown(size_hint=(1, None), height=(fs * 2,  'dp'))
         label1.bind(size=label1.setter('text_size'))
         glay = GridLayout(cols=2, height=(fs * 3,  'dp'), size_hint=(1, None), padding=10, spacing=10)
-        
+        btn = Button(text='WiFi (192.168.0.10:35000)', size_hint_y=None, height=(fs * 2,  'dp'))
+        btn.bind(on_release=lambda btn: self.bt_dropdown.select(btn.text))
+        self.bt_dropdown.add_widget(btn)
+        try:
+            porte = ports.iteritems()
+        except:
+            porte = ports.items()
         for name, address in porte:
             if mod_globals.opt_port == name:
                 mod_globals.opt_dev_address = address
@@ -194,9 +259,37 @@ class MainApp(App):
         self.bt_dropdown.select(mod_globals.opt_port)
         glay.add_widget(label1)
         glay.add_widget(self.mainbutton)
-        return glay"""
+        return glay
 
-if __name__ == '__main__':
+    def make_input(self, str1, iText):
+        label1 = Label(text=str1, halign='left', valign='middle', size_hint=(1, None), height=(fs * 3,  'dp'), font_size=(fs,  'dp'))
+        ti = TextInput(text=iText, multiline=False, font_size=(fs,  'dp'))
+        self.textInput[str1] = ti
+        label1.bind(size=label1.setter('text_size'))
+        glay = GridLayout(cols=2, height=(fs * 3,  'dp'), size_hint=(1, None), padding=10, spacing=10)
+        glay.add_widget(label1)
+        glay.add_widget(ti)
+        return glay
+
+def destroy():
+    exit()
+
+def kivyScreenConfig():
+    global resizeFont
+    if mod_globals.os != 'android':
+        if Window.size[0]>Window.size[1]: ws = Window.size[0]/Window.size[1]*1.2
+        else: ws = Window.size[1]/Window.size[0]*1.2
+        Window.size = (Window.size[0], Window.size[1])
+    
+    Window.bind(on_close=destroy)
+    while 1:
+        config = MainApp()
+        config.run()
+        if not resizeFont:
+            return
+        resizeFont = False
+
+def main():
     if not os.path.exists(mod_globals.cache_dir):
         os.makedirs(mod_globals.cache_dir)
     if not os.path.exists(mod_globals.log_dir):
@@ -204,5 +297,11 @@ if __name__ == '__main__':
     if not os.path.exists(mod_globals.dumps_dir):
         os.makedirs(mod_globals.dumps_dir)
     mod_db_manager.find_DBs()
-    app = MainApp()
-    app.run()
+    settings = mod_globals.Settings()
+    kivyScreenConfig()
+    settings.save()
+    while 1:
+        DDT().start()
+
+if __name__ == '__main__':
+    main()

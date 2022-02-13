@@ -66,17 +66,19 @@ def multikeysort(items, columns):
     return sorted(items, cmp=comparer)
 
 def getPortList():
-    ret = []
-    iterator = sorted(list(serial.tools.list_ports.comports()))
-    for port, desc, hwid in iterator:
-        try:
-            de = unicode(desc.encode("ascii", "ignore"))
-            ret.append(port + u';' + de)
-        except:
-            ret.append(port + ';')
-    if '192.168.0.10:35000;WiFi' not in ret:
-        ret.append('192.168.0.10:35000;WiFi')
-    return ret
+    devs = {}
+    if mod_globals.os != 'android':
+        iterator = sorted(list(serial.tools.list_ports.comports()))
+        for port, desc, hwid in iterator:
+            devs[desc] = port
+        return devs
+    paired_devices = BluetoothAdapter.getDefaultAdapter().getBondedDevices().toArray()
+    for device in paired_devices:
+        deviceName = device.getName()
+        if deviceName:
+            deviceAddress = device.getAddress()
+            devs[deviceName] = deviceAddress
+    return devs
 
 def loadECUlist():
 
