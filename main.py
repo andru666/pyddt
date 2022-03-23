@@ -1,15 +1,19 @@
 ﻿# -*- coding: utf-8 -*-
-from kivy.config import Config
 try:
     from kivy_deps import sdl2, glew
 except:
     pass
+from kivy.config import Config
 from kivy.utils import platform
 Config.set('kivy', 'exit_on_escape', '0')
 if platform != 'android':
     Config.set('graphics', 'position', 'custom')
-    Config.set('graphics', 'left', 300)
+    Config.set('graphics', 'left', 100)
     Config.set('graphics', 'top',  50)
+    import ctypes
+    user32 = ctypes.windll.user32
+    from kivy.core.window import Window
+    Window.size = user32.GetSystemMetrics(0), user32.GetSystemMetrics(1)
 from kivy.core.window import Window
 from kivy.app import App
 from mod_ddt import DDT
@@ -22,8 +26,11 @@ from kivy.uix.switch import Switch
 from kivy.uix.textinput import TextInput
 from kivy.uix.popup import Popup
 from kivy import base
-
-import mod_globals, mod_db_manager, mod_ddt_utils, os, sys
+from kivy.graphics import Color, Rectangle
+from mod_ddt_screen import DDTScreen
+from mod_ddt_ecu import DDTECU
+import os, sys, glob
+import mod_globals, mod_db_manager, mod_ddt_utils, mod_ddt
 
 if int(Window.size[1]) > int(Window.size[0]):
     fs = int(Window.size[1])/(int(Window.size[0])/9)
@@ -33,11 +40,6 @@ else:
 __all__ = 'install_android'
 
 mod_globals.os = platform
-
-if mod_globals.os != 'android':
-    if Window.size[0]>Window.size[1]: ws = Window.size[0]/Window.size[1]*1.2
-    else: ws = Window.size[1]/Window.size[0]*1.2
-    Window.size = (Window.size[0], Window.size[1]*ws)
 
 if mod_globals.os == 'android':
     try:
@@ -97,14 +99,47 @@ def set_orientation_portrait():
         activity = AndroidPythonActivity.mActivity
         activity.setRequestedOrientation(AndroidActivityInfo.SCREEN_ORIENTATION_PORTRAIT)
 
-class MainApp(App):
+class MyLabel(Label):
+    def __init__(self, **kwargs):
+        if 'bgcolor' in kwargs:
+            self.bgcolor = kwargs['bgcolor']
+        else:
+            self.bgcolor = (0, 0, 0, 0)
+        super(MyLabel, self).__init__(**kwargs)
+        self.bind(size=self.setter('text_size'))
+        self.halign = 'center'
+        self.valign = 'middle'
+        if 'size_hint' not in kwargs:
+            self.size_hint = (1, None)
+        if 'height' not in kwargs:
+            fmn = 1.1
+            lines = len(self.text.split('\n'))
+            simb = len(self.text) / 60
+            if lines < simb: lines = simb
+            if lines < 7: lines = 5
+            if lines > 20: lines = 15
+            if 1 > simb: lines = 1.5
+            if fs > 20: 
+                lines = lines * 1.05
+                fmn = 1.5
+            self.height = fmn * lines * fs
+    
+    def on_size(self, *args):
+        if not self.canvas:
+            return
+        self.canvas.before.clear()
+        with self.canvas.before:
+            Color(self.bgcolor[0], self.bgcolor[1], self.bgcolor[2], self.bgcolor[3])
+            Rectangle(pos=self.pos, size=self.size)
+
+class PYDDT(App):
     
     def __init__(self):
         self.button = {}
         self.textInput = {}
         self.ptree = {}
         self.eculist = mod_ddt_utils.loadECUlist()
-        super(MainApp, self).__init__()
+        super(PYDDT, self).__init__()
         Window.bind(on_keyboard=self.key_handler)
 
     def key_handler(self, window, keycode1, keycode2, text, modifiers):
@@ -126,7 +161,7 @@ class MainApp(App):
         return False
 
     def build(self):
-        layout = GridLayout(cols=1, padding=10, spacing=20, size_hint=(1.0, None))
+        layout = GridLayout(cols=1, padding=10, spacing=20, size_hint=(1, None))
         layout.bind(minimum_height=layout.setter('height'))
         
         layout.add_widget(Label(text='PyDDT', font_size=(fs*2,  'dp'), height=(fs * 2,  'dp'), size_hint=(1, None)))
@@ -136,19 +171,74 @@ class MainApp(App):
             self.archive = str(mod_globals.ddtroot).rpartition('\\')[2]
         if self.archive == '.' or self.archive == '..': self.archive = 'NOT BASE DDT2000'
         layout.add_widget(Label(text='DB archive : ' + self.archive, font_size=(fs*0.9,  'dp'), height=(fs,  'dp'), multiline=True, size_hint=(1, None)))
-        layout.add_widget(Button(text= 'Scan all ECUs', size_hint=(1, None), on_press=self.finish, height=(fs * 2,  'dp')))
+        #layout.add_widget(Button(text= 'Scan ECUs', size_hint=(1, None), on_press=self.finish, height=(fs * 2,  'dp')))
+        #layout.add_widget(Button(text= 'test', size_hint=(1, None), on_press=self.test, height=(fs * 2,  'dp')))
+        layout.add_widget(Button(text= 'Open ECUs(off)', size_hint=(1, None), on_press=self.DemoClick, height=(fs * 2,  'dp')))
+        layout.add_widget(self.make_savedEcus())
         layout.add_widget(self.in_car())
         layout.add_widget(self.make_bt_device_entry())
         layout.add_widget(self.make_box_switch('Demo mode', mod_globals.opt_demo))
         layout.add_widget(self.make_box_switch('Generate logs', True if len(mod_globals.opt_log) > 0 else False))
         layout.add_widget(self.make_input('Log name', mod_globals.opt_log))
+        layout.add_widget(self.make_box_switch('DUMP', mod_globals.opt_dump))
         layout.add_widget(self.make_input('Font size', str(mod_globals.fontSize)))
-        root = ScrollView(size_hint=(1, 1), do_scroll_x=False, pos_hint={'center_x': 0.5,
-         'center_y': 0.5})
+        root = ScrollView(size_hint=(1, 1))
         root.add_widget(layout)
         return root
 
+    def scan(self, instance):
+        print instance
+        #mod_ddt.DDTLauncher().ScanAllBtnClick()
+
+    def test(self, instance):
+        layout = GridLayout(cols=1, padding=10, spacing=20, size_hint=(1, None))
+        
+        cars = 'x06 : Twingo'
+        
+        mod_ddt.DDTLauncher(cars).CarDoubleClick(cars)
+        
+        layout.add_widget(Label(text='Запустилось тестовое окно'))
+        root = ScrollView(size_hint=(1, 1))
+        root.add_widget(layout)
+        self.popup = Popup(title='Запустилось тестовое окно', content=root, size_hint=(None, None), size=(Window.size[0]*0.7, Window.size[1]*0.7))
+        self.popup.open()
+
+    def DemoClick(self, instance):
+        self.finish(instance)
+        #mod_globals.savedCAR = 'savedCAR_prev1.csv'
+        xml = 'BCB_3CG_1.3_20190211T095302.xml'
+        xml = 'DAE_X65_V1.4.xml'
+        label = Label(text='Not select car or savedCAR')
+        popup = Popup(title='ERROR', content=label, size=(500, 500), size_hint=(None, None))
+        if mod_globals.opt_car != 'ALL CARS' or (mod_globals.savedCAR != 'Select'):
+            self.stop()
+            mod_ddt.DDTLauncher(mod_globals.opt_car).run()
+        else:
+            cars = 'x06 : Twingo'
+            popup.open()
+            return
+
+    def make_savedEcus(self):
+        ecus = sorted(glob.glob(os.path.join(mod_globals.user_data_dir, 'savedCAR_*.csv')))
+        label1 = Label(text='Load savedCAR', halign='left', valign='middle', size_hint=(1, None), height=(fs * 2,  'dp'), font_size=(fs,  'dp'))
+        self.ecus_dropdown = DropDown(size_hint=(1, None), height=(fs,  'dp'))
+        label1.bind(size=label1.setter('text_size'))
+        glay = GridLayout(cols=2, height=(fs * 3,  'dp'), size_hint=(1, None), padding=10, spacing=10)
+        for s_ecus in ecus:
+            s_ecus = os.path.split(s_ecus)[1]
+            btn= Button(text=s_ecus, size_hint_y=None, height=(fs * 2,  'dp'))
+            btn.bind(on_release=lambda btn: self.ecus_dropdown.select(btn.text))
+            self.ecus_dropdown.add_widget(btn)
+        self.ecusbutton = Button(text='Select', size_hint=(1, None), height=(fs * 2,  'dp'))
+        self.ecusbutton.bind(on_release=self.ecus_dropdown.open)
+        self.ecus_dropdown.bind(on_select=lambda instance, x: setattr(self.ecusbutton, 'text', x))
+        glay.add_widget(label1)
+        glay.add_widget(self.ecusbutton)
+        return glay
+
     def finish(self, instance):
+        mod_globals.savedCAR = self.ecusbutton.text
+        mod_globals.opt_dump = self.button['DUMP'].active
         mod_globals.opt_demo = self.button['Demo mode'].active
         if self.button['Generate logs'].active:
             mod_globals.opt_log = 'log.txt' if self.textInput['Log name'].text == '' else self.textInput['Log name'].text
@@ -173,7 +263,7 @@ class MainApp(App):
         except:
             mod_globals.fontSize = 20
         mod_globals.opt_car = self.carbutton.text
-        self.stop()
+        if mod_globals.opt_car != 'ALL CARS'and mod_globals.savedCAR != 'Select':self.stop()
 
     def in_car(self):
         glay = GridLayout(cols=2, height=(fs * 3,  'dp'), size_hint=(1, None), padding=10, spacing=10)
@@ -220,7 +310,6 @@ class MainApp(App):
         return self.ptree
 
     def make_box_switch(self, str1, active, callback = None):
-        
         label1 = Label(text=str1, halign='left', valign='middle', size_hint=(1, None), height=(fs * 2,  'dp'), font_size=(fs,  'dp'))
         sw = Switch(active=active, size_hint=(1, None), height=(fs * 2,  'dp'))
         if callback:
@@ -233,7 +322,6 @@ class MainApp(App):
         return glay
 
     def make_bt_device_entry(self):
-        
         ports = mod_ddt_utils.getPortList()
         label1 = Label(text='ELM port', halign='left', valign='middle', size_hint=(1, None), height=(fs,  'dp'), font_size=(fs,  'dp'))
         self.bt_dropdown = DropDown(size_hint=(1, None), height=(fs * 2,  'dp'))
@@ -252,7 +340,6 @@ class MainApp(App):
             btn = Button(text=name + '>' + address, size_hint_y=None, height=(fs * 2,  'dp'))
             btn.bind(on_release=lambda btn: self.bt_dropdown.select(btn.text))
             self.bt_dropdown.add_widget(btn)
-
         self.mainbutton = Button(text='Select', size_hint=(1, None), height=(fs * 2,  'dp'))
         self.mainbutton.bind(on_release=self.bt_dropdown.open)
         self.bt_dropdown.bind(on_select=lambda instance, x: setattr(self.mainbutton, 'text', x))
@@ -277,13 +364,12 @@ def destroy():
 def kivyScreenConfig():
     global resizeFont
     if mod_globals.os != 'android':
-        if Window.size[0]>Window.size[1]: ws = Window.size[0]/Window.size[1]*1.2
-        else: ws = Window.size[1]/Window.size[0]*1.2
-        Window.size = (Window.size[0], Window.size[1])
-    
+        height = Window.size[1]*0.85
+        width = height/1.3
+        Window.size = (width, height)
     Window.bind(on_close=destroy)
     while 1:
-        config = MainApp()
+        config = PYDDT()
         config.run()
         if not resizeFont:
             return
@@ -300,8 +386,6 @@ def main():
     settings = mod_globals.Settings()
     kivyScreenConfig()
     settings.save()
-    while 1:
-        DDT().start()
 
 if __name__ == '__main__':
     main()

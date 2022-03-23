@@ -7,7 +7,17 @@ import mod_db_manager
 
 from operator import itemgetter
 from copy import deepcopy
-import serial
+from kivy.utils import platform
+if platform != 'android':
+    import serial
+    from serial.tools import list_ports
+else:
+    from jnius import autoclass
+    mod_globals.os = 'android'
+    BluetoothAdapter = autoclass('android.bluetooth.BluetoothAdapter')
+    BluetoothDevice = autoclass('android.bluetooth.BluetoothDevice')
+    BluetoothSocket = autoclass('android.bluetooth.BluetoothSocket')
+    UUID = autoclass('java.util.UUID')
 try:
     import cPickle as pickle
 except:
@@ -206,11 +216,14 @@ class ddtProjects():
                 self.plist.append(pl_ma)
 
 class ddtAddressing():
+    
     def __init__(self, filename ):
         self.addr_path = 'vehicles/' + filename
 
         self.alist = []
-
+        
+        
+        
         if not mod_db_manager.file_in_ddt(self.addr_path):
             return
 
