@@ -1,8 +1,7 @@
 # -*- coding: utf-8 -*-
 import sys, os, operator, ast, gc, time, pickle
 
-import mod_ddt_utils, mod_globals
-import mod_db_manager
+import mod_ddt_utils, mod_globals, mod_db_manager, mod_scan_ecus
 from shutil import copyfile
 import xml.etree.ElementTree as et
 from xml.dom.minidom import parse
@@ -63,8 +62,8 @@ class MyLabel(Label):
             self.halign = 'center'
         if 'valign' not in kwargs:
             self.valign = 'middle'
-        if 'font_Size' not in kwargs:
-            self.font_Size = fs
+        if 'font_size' not in kwargs:
+            self.font_size = fs
         if 'size_hint' not in kwargs:
             self.size_hint =(1, None)
         if 'height' not in kwargs:
@@ -197,9 +196,9 @@ class DDTLauncher(App):
         self.ids = {}
         self.ptree = list()
         self.filterText = filterText
+        self.progress = {}
         
         self.dv_addr = []
-        
         optsGrid = {'ipadx': 0, 'ipady': 0, 'sticky': 'nswe'}
         optsGrid_w = {'ipadx': 0, 'ipady': 0, 'sticky': 'w'}
         optsGrid_e = {'ipadx': 0, 'ipady': 0, 'sticky': 'e'}
@@ -213,6 +212,14 @@ class DDTLauncher(App):
                       'foreground':"#000000",
                       'highlightbackground':"#d9d9d9"}
         self.fltBtnClick()
+        
+        if mod_globals.savedCAR != 'Select':
+            self.LoadCarFile(mod_globals.savedCAR)
+        else:
+            self.CarDoubleClick()
+        if mod_globals.opt_scan:
+            self.ScanAllBtnClick()
+        
         super(DDTLauncher, self).__init__()
         Window.bind(on_keyboard=self.key_handler)
 
@@ -244,16 +251,13 @@ class DDTLauncher(App):
         self.stop()
     
     def build(self):
-        if mod_globals.savedCAR != 'Select':
-            self.LoadCarFile(mod_globals.savedCAR)
-        else:
-            self.CarDoubleClick()
+        
         self.getDumpListByXml()
         p = 0
-        if not mod_globals.opt_demo: height_g = fs*4*len([v for v in range(len(self.carecus)) if self.carecus[v]['xml'] != ''])
-        else: height_g = fs*4*len(self.carecus)
+        if not mod_globals.opt_demo: height_g = fs*6*len([v for v in range(len(self.carecus)) if self.carecus[v]['xml'] != ''])
+        else: height_g = fs*6*len(self.carecus)
         if height_g == 0: height_g = 200
-        layout = GridLayout(cols=1, size_hint=(None, None),size=(fs*100, ((fs*6)+height_g)))
+        layout = GridLayout(cols=1, size_hint=(None, None),size=(fs*90, ((fs*8)+height_g)))
         layout.add_widget(self.make_savedECU())
         box = GridLayout(cols=9, spacing=3, size_hint=(1, None), height=height_g)
         box.bind(minimum_height=box.setter('height'))
@@ -263,7 +267,7 @@ class DDTLauncher(App):
             if key == 'addr':
                 box1 = BoxLayout(orientation='vertical', spacing=1, size_hint=(0.08, 1))
             elif key == 'name':
-                box1 = BoxLayout(orientation='vertical', spacing=1, size_hint=(0.3, 1))
+                box1 = BoxLayout(orientation='vertical', spacing=1, size_hint=(0.25, 1))
             elif key == 'iso8':
                 box1 = BoxLayout(orientation='vertical', spacing=1, size_hint=(0.08, 1))
             elif key == 'xid':
@@ -271,12 +275,12 @@ class DDTLauncher(App):
             elif key == 'rid':
                 box1 = BoxLayout(orientation='vertical', spacing=1, size_hint=(0.08, 1))
             elif key == 'dump':
-                box1 = BoxLayout(orientation='vertical', spacing=1, size_hint=(0.5, 1))
+                box1 = BoxLayout(orientation='vertical', spacing=1, size_hint=(0.7, 1))
             elif key == 'xml':
                 box1 = BoxLayout(orientation='vertical', spacing=1, size_hint=(1, 1))
             else:
                 box1 = BoxLayout(orientation='vertical', spacing=1, size_hint=(0.18, 1))
-            box1.add_widget(MyLabel(text=Cols[key][0], size_hint=(1, 1), bgcolor=Cols[key][1]))
+            box1.add_widget(MyLabel(text=Cols[key][0], size_hint=(1, None), height=fs*3, bgcolor=Cols[key][1]))
             i = 1
             p = len(self.carecus)+1
             for v in range(len(self.carecus)):
@@ -398,6 +402,7 @@ class DDTLauncher(App):
         decu = None
         try:
             self.enableELM()
+            print mod_globals.opt_demo
         except:
             return
         if not mod_globals.opt_demo and self.var_dump:
@@ -711,13 +716,22 @@ class DDTLauncher(App):
         except:
             return
         if self.elm==None or self.elm.port==0:
-            tkMessageBox.showinfo("ERROR", "ELM is not connected. You may work only offline.")
+            self.MyPopup(title="ERROR", content="ELM is not connected. You may work only offline.")
             return
         scansequence = ['CAN','KWP','ISO']
         vins = {}
+        lbltxt = Label(text='Init', font_size=20)
+        popup_scan = Popup(title='Scanning CAN bus', content=lbltxt, size=(400, 400), size_hint=(None, None))
+        base.runTouchApp(slave=True)
+        popup_scan.open()
+        EventLoop.idle()
         self.progress['maximum'] = len(self.carecus)+1
         progressValue = 1
         self.progress['value'] = progressValue
+        i = 1
+        u = 0
+        lbltxt.text = 'Scanning:' + str(i) + '/' + str(len(self.carecus)) + ' Detected: ' + str(u)
+        EventLoop.idle()
         for pro in scansequence:
             if pro == 'CAN':
                 self.elm.init_can()
@@ -725,16 +739,18 @@ class DDTLauncher(App):
                 self.elm.init_iso()
             for ce in self.carecus:
                 if pro in ce['prot'] or ce['prot']=='':
+                    lbltxt.text = 'Scanning:' + str(i) + '/' + str(len(self.carecus)) + ' Detected: ' + str(u)
+                    i += 1
+                    EventLoop.idle()
                     self.setEcuAddress(ce, pro)
                     progressValue = progressValue + 1
                     self.progress['value'] = progressValue
-                    self.progress.update()
+                    
                     (StartSession, DiagVersion, Supplier, Version, Soft, Std, VIN) = mod_scan_ecus.readECUIds(self.elm)
                     if DiagVersion=='' and DiagVersion=='' and Version=='' and Soft=='' and VIN=='':
                         continue
-                    candlist = mod_ddt_ecu.ecuSearch(self.v_proj.get(), ce['addr'],
-                                                     DiagVersion, Supplier, Soft, Version,
-                                                     self.eculist, interactive = False)
+                    u += 1
+                    candlist = mod_ddt_ecu.ecuSearch(self.v_proj, ce['addr'], DiagVersion, Supplier, Soft, Version,self.eculist, interactive = False)
                     ce['xml'] = candlist[0]
                     ce['ses'] = StartSession
                     ce['undef'] = '0'
@@ -744,19 +760,21 @@ class DDTLauncher(App):
                     else:
                         ce['dump'] = ''
 
-
-                    # count most frequent VINs
                     if VIN!='':
                         if VIN not in vins.keys():
                             vins[VIN] = 1
                         else:
                             vins[VIN] = vins[VIN] + 1
-
+                
                     self.renewEcuList()
-
-        if self.v_vin.get()=='' and len(vins.keys()):
-          self.v_vin.set(max(vins.iteritems(), key=operator.itemgetter(1))[0])
-
+        EventLoop.window.remove_widget(popup_scan)
+        popup_scan.dismiss()
+        base.stopTouchApp()
+        EventLoop.window.canvas.clear()
+        del popup_scan
+        if self.v_vin=='' and len(vins.keys()):
+            self.v_vin = (max(vins.iteritems(), key=operator.itemgetter(1))[0])
+        print self.progress
         self.progress['value'] = 0
         return
 
@@ -772,8 +790,22 @@ class DDTLauncher(App):
         try:
             self.elm = ELM(mod_globals.opt_port, mod_globals.opt_speed, mod_globals.opt_log)
         except:
-            mod_globals.opt_demo = True
-            self.elm = ELM(mod_globals.opt_port, mod_globals.opt_speed, mod_globals.opt_log)
+            labelText = '''
+                Could not connect to the ELM.
+
+                Possible causes:
+                - Bluetooth is not enabled
+                - other applications are connected to your ELM e.g Torque
+                - other device is using this ELM
+                - ELM got unpaired
+                - ELM is read under new name or it changed its name
+
+                Check your ELM connection and try again.
+            '''
+            lbltxt = Label(text=labelText, font_size=mod_globals.fontSize)
+            popup_load = Popup(title='ELM connection error', content=lbltxt, size=(800, 800), auto_dismiss=True, on_dismiss=exit)
+            popup_load.open()
+            base.runTouchApp()
         if mod_globals.opt_speed < mod_globals.opt_rate and not mod_globals.opt_demo:
             self.elm.port.soft_boudrate(mod_globals.opt_rate)
 

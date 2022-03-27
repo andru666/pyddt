@@ -171,9 +171,9 @@ class PYDDT(App):
             self.archive = str(mod_globals.ddtroot).rpartition('\\')[2]
         if self.archive == '.' or self.archive == '..': self.archive = 'NOT BASE DDT2000'
         layout.add_widget(Label(text='DB archive : ' + self.archive, font_size=(fs*0.9,  'dp'), height=(fs,  'dp'), multiline=True, size_hint=(1, None)))
-        #layout.add_widget(Button(text= 'Scan ECUs', size_hint=(1, None), on_press=self.finish, height=(fs * 2,  'dp')))
+        layout.add_widget(Button(text= 'Scan ALL ECUs', size_hint=(1, None), on_press=self.scanALLecus, height=(fs * 2,  'dp')))
         #layout.add_widget(Button(text= 'test', size_hint=(1, None), on_press=self.test, height=(fs * 2,  'dp')))
-        layout.add_widget(Button(text= 'Open ECUs(off)', size_hint=(1, None), on_press=self.DemoClick, height=(fs * 2,  'dp')))
+        layout.add_widget(Button(text= 'Open ECUs', size_hint=(1, None), on_press=self.OpenEcu, height=(fs * 2,  'dp')))
         layout.add_widget(self.make_savedEcus())
         layout.add_widget(self.in_car())
         layout.add_widget(self.make_bt_device_entry())
@@ -190,31 +190,28 @@ class PYDDT(App):
         print instance
         #mod_ddt.DDTLauncher().ScanAllBtnClick()
 
-    def test(self, instance):
-        layout = GridLayout(cols=1, padding=10, spacing=20, size_hint=(1, None))
-        
-        cars = 'x06 : Twingo'
-        
-        mod_ddt.DDTLauncher(cars).CarDoubleClick(cars)
-        
-        layout.add_widget(Label(text='Запустилось тестовое окно'))
-        root = ScrollView(size_hint=(1, 1))
-        root.add_widget(layout)
-        self.popup = Popup(title='Запустилось тестовое окно', content=root, size_hint=(None, None), size=(Window.size[0]*0.7, Window.size[1]*0.7))
-        self.popup.open()
-
-    def DemoClick(self, instance):
+    def scanALLecus(self, instance):
         self.finish(instance)
-        #mod_globals.savedCAR = 'savedCAR_prev1.csv'
-        xml = 'BCB_3CG_1.3_20190211T095302.xml'
-        xml = 'DAE_X65_V1.4.xml'
         label = Label(text='Not select car or savedCAR')
-        popup = Popup(title='ERROR', content=label, size=(500, 500), size_hint=(None, None))
+        popup = Popup(title='ERROR', content=label, size=(400, 400), size_hint=(None, None))
+        if mod_globals.opt_car != 'ALL CARS':
+            self.stop()
+            mod_globals.opt_demo = False
+            mod_globals.opt_scan = True
+            mod_ddt.DDTLauncher(mod_globals.opt_car).run()
+        else:
+            popup.open()
+            return
+
+    def OpenEcu(self, instance):
+        self.finish(instance)
+        #mod_globals.savedCAR = 'savedCAR_duster.csv'
+        label = Label(text='Not select car or savedCAR')
+        popup = Popup(title='ERROR', content=label, size=(400, 400), size_hint=(None, None))
         if mod_globals.opt_car != 'ALL CARS' or (mod_globals.savedCAR != 'Select'):
             self.stop()
             mod_ddt.DDTLauncher(mod_globals.opt_car).run()
         else:
-            cars = 'x06 : Twingo'
             popup.open()
             return
 

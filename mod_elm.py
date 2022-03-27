@@ -362,7 +362,8 @@ class Port:
                 self.hdr = serial.Serial(self.portName, baudrate=speed, timeout=portTimeout)
             except:
                 iterator = sorted(list(list_ports.comports()))
-                mod_globals.opt_demo = True
+                #mod_globals.opt_demo = True
+                print 'opt_demo = True'
                 exit(2)
 
             if mod_globals.opt_speed == 38400 and mod_globals.opt_rate != mod_globals.opt_speed:
@@ -402,7 +403,8 @@ class Port:
             elif self.hdr.inWaiting():
                 byte = self.hdr.read()
         except:
-            mod_globals.opt_demo = True
+            #mod_globals.opt_demo = True
+            print 'opt_demo = True'
             exit(2)
 
         return byte
@@ -422,7 +424,8 @@ class Port:
                 return len(data)
             return self.hdr.write(data)
         except:
-            mod_globals.opt_demo = True
+            #mod_globals.opt_demo = True
+            print 'opt_demo = True'
             exit(2)
 
     def expect(self, pattern, time_out = 1):
