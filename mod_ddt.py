@@ -1,7 +1,7 @@
 # -*- coding: utf-8 -*-
 import sys, os, operator, ast, gc, time, pickle
 
-import mod_ddt_utils, mod_globals, mod_db_manager, mod_scan_ecus
+import mod_ddt_utils, mod_globals, mod_db_manager, mod_scan_ecus, mod_ddt_ecu
 from shutil import copyfile
 import xml.etree.ElementTree as et
 from xml.dom.minidom import parse
@@ -286,14 +286,14 @@ class DDTLauncher(App):
             for v in range(len(self.carecus)):
                 if self.carecus[v]['xml'] == '' and not mod_globals.opt_demo: continue
                 if key == 'name':
-                    self.but_name = MyButton(text=self.carecus[v][key],  id=str(v), on_press=lambda args,v=v,bt=str(v):self.popup_xml(bt, self.carecus[v]['addr']))
+                    self.but_name = MyButton(text=self.carecus[v][key],  id=str(v), on_release=lambda args,v=v,bt=str(v):self.popup_xml(bt, self.carecus[v]['addr']))
                     box1.add_widget(self.but_name)
                 elif key == 'xml':
-                    self.but_xml = MyButton(text=self.carecus[v][key], id=str(v), font_size=fs, on_press=self.openECUS)
+                    self.but_xml = MyButton(text=self.carecus[v][key], id=str(v), font_size=fs, on_release=self.openECUS)
                     self.ids[str(v)] = self.but_xml
                     box1.add_widget(self.but_xml)
                 elif key == 'dump':
-                    self.but_dump = MyButton(text=self.carecus[v][key], id=str(p), on_press=self.popup_dump)
+                    self.but_dump = MyButton(text=self.carecus[v][key], id=str(p), on_release=self.popup_dump)
                     self.ids[str(p)] = self.but_dump
                     box1.add_widget(self.but_dump)
                     p = p+1
@@ -301,7 +301,7 @@ class DDTLauncher(App):
                     box1.add_widget(MyLabel(text=self.carecus[v][key], size_hint=(1, 1), bgcolor=(0.8,0,0,0.8)))
             box.add_widget(box1)
         layout.add_widget(box)
-        quitbutton = MyButton(text='<BACK>', size_hint=(1, None), height=fs*4, on_press=self.finish)
+        quitbutton = MyButton(text='<BACK>', size_hint=(1, None), height=fs*4, on_release=self.finish)
         layout.add_widget(quitbutton)
         root = ScrollView(size_hint=(1, 1))
         root.add_widget(layout)
@@ -316,6 +316,9 @@ class DDTLauncher(App):
         return
 
     def popup_xml(self, idds, inst):
+        print idds
+        print inst
+        time.sleep(1)
         self.dv_addr = inst
         self.getXmlListByProj()
         layout = GridLayout(cols=1, spacing=5, size_hint=(1, None))
@@ -329,6 +332,7 @@ class DDTLauncher(App):
         self.popup.open()
 
     def popup_dump(self, bt):
+        bt.background_color= (0,1,0,1)
         id = bt.id
         layout = GridLayout(cols=1, spacing=5, size_hint=(1, None))
         layout.bind(minimum_height=layout.setter('height'))

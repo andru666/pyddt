@@ -23,6 +23,7 @@ from kivy.uix.scrollview import ScrollView
 from kivy.uix.gridlayout import GridLayout
 from kivy.uix.dropdown import DropDown
 from kivy.uix.switch import Switch
+from kivy.uix.togglebutton import ToggleButton
 from kivy.uix.textinput import TextInput
 from kivy.uix.popup import Popup
 from kivy import base
@@ -171,30 +172,26 @@ class PYDDT(App):
             self.archive = str(mod_globals.ddtroot).rpartition('\\')[2]
         if self.archive == '.' or self.archive == '..': self.archive = 'NOT BASE DDT2000'
         layout.add_widget(Label(text='DB archive : ' + self.archive, font_size=(fs*0.9,  'dp'), height=(fs,  'dp'), multiline=True, size_hint=(1, None)))
-        layout.add_widget(Button(text= 'Scan ALL ECUs', size_hint=(1, None), on_press=self.scanALLecus, height=(fs * 2,  'dp')))
-        #layout.add_widget(Button(text= 'test', size_hint=(1, None), on_press=self.test, height=(fs * 2,  'dp')))
-        layout.add_widget(Button(text= 'Open ECUs', size_hint=(1, None), on_press=self.OpenEcu, height=(fs * 2,  'dp')))
+        layout.add_widget(Button(text= 'Scan ALL ECUs', id='scan', size_hint=(1, None), on_press=self.scanALLecus, height=(fs * 4,  'dp')))
+        self.open_demo = Button(text= 'Open ECUs DEMO', id='demo', size_hint=(1, None), on_press=lambda bt:self.OpenEcu(bt), height=(fs * 4,  'dp'))
+        layout.add_widget(self.open_demo)
         layout.add_widget(self.make_savedEcus())
         layout.add_widget(self.in_car())
         layout.add_widget(self.make_bt_device_entry())
-        layout.add_widget(self.make_box_switch('Demo mode', mod_globals.opt_demo))
-        layout.add_widget(self.make_box_switch('Generate logs', True if len(mod_globals.opt_log) > 0 else False))
-        layout.add_widget(self.make_input('Log name', mod_globals.opt_log))
-        layout.add_widget(self.make_box_switch('DUMP', mod_globals.opt_dump))
+        layout.add_widget(self.make_input_toggle('Generate logs', mod_globals.opt_log, 'down' if len(mod_globals.opt_log) > 0 else  'normal'))
         layout.add_widget(self.make_input('Font size', str(mod_globals.fontSize)))
+        layout.add_widget(self.make_box_switch('DUMP', mod_globals.opt_dump))
         root = ScrollView(size_hint=(1, 1))
         root.add_widget(layout)
         return root
 
-    def scan(self, instance):
-        print instance
-        #mod_ddt.DDTLauncher().ScanAllBtnClick()
-
     def scanALLecus(self, instance):
+        
         self.finish(instance)
-        label = Label(text='Not select car or savedCAR')
+        label = Label(text='Not select car')
         popup = Popup(title='ERROR', content=label, size=(400, 400), size_hint=(None, None))
         if mod_globals.opt_car != 'ALL CARS':
+            instance.background_color= (0,1,0,1)
             self.stop()
             mod_globals.opt_demo = False
             mod_globals.opt_scan = True
@@ -204,11 +201,15 @@ class PYDDT(App):
             return
 
     def OpenEcu(self, instance):
-        self.finish(instance)
+        
+        print instance
+        if instance.id == 'demo': mod_globals.open_demo = True
+        self.finish(instance.id)
         #mod_globals.savedCAR = 'savedCAR_duster.csv'
         label = Label(text='Not select car or savedCAR')
         popup = Popup(title='ERROR', content=label, size=(400, 400), size_hint=(None, None))
         if mod_globals.opt_car != 'ALL CARS' or (mod_globals.savedCAR != 'Select'):
+            instance.background_color= (0,1,0,1)
             self.stop()
             mod_ddt.DDTLauncher(mod_globals.opt_car).run()
         else:
@@ -217,30 +218,30 @@ class PYDDT(App):
 
     def make_savedEcus(self):
         ecus = sorted(glob.glob(os.path.join(mod_globals.user_data_dir, 'savedCAR_*.csv')))
-        label1 = Label(text='Load savedCAR', halign='left', valign='middle', size_hint=(1, None), height=(fs * 2,  'dp'), font_size=(fs,  'dp'))
+        toggle = Button(text='Load savedCAR', id='open', background_color=(1,0,1,1), size_hint=(1, None), height=(fs * 3,  'dp'), on_press=lambda bt:self.OpenEcu(bt))
         self.ecus_dropdown = DropDown(size_hint=(1, None), height=(fs,  'dp'))
-        label1.bind(size=label1.setter('text_size'))
         glay = GridLayout(cols=2, height=(fs * 3,  'dp'), size_hint=(1, None), padding=10, spacing=10)
         for s_ecus in ecus:
             s_ecus = os.path.split(s_ecus)[1]
-            btn= Button(text=s_ecus, size_hint_y=None, height=(fs * 2,  'dp'))
+            btn= Button(text=s_ecus, size_hint_y=None, height=(fs * 3,  'dp'))
             btn.bind(on_release=lambda btn: self.ecus_dropdown.select(btn.text))
             self.ecus_dropdown.add_widget(btn)
-        self.ecusbutton = Button(text='Select', size_hint=(1, None), height=(fs * 2,  'dp'))
+        self.ecusbutton = Button(text='Select', size_hint=(1, None), height=(fs * 3,  'dp'))
         self.ecusbutton.bind(on_release=self.ecus_dropdown.open)
         self.ecus_dropdown.bind(on_select=lambda instance, x: setattr(self.ecusbutton, 'text', x))
-        glay.add_widget(label1)
+        glay.add_widget(toggle)
         glay.add_widget(self.ecusbutton)
         return glay
 
     def finish(self, instance):
         mod_globals.savedCAR = self.ecusbutton.text
         mod_globals.opt_dump = self.button['DUMP'].active
-        mod_globals.opt_demo = self.button['Demo mode'].active
-        if self.button['Generate logs'].active:
-            mod_globals.opt_log = 'log.txt' if self.textInput['Log name'].text == '' else self.textInput['Log name'].text
+        if instance == 'demo': mod_globals.opt_demo = True
+        else: mod_globals.opt_demo = False
+        if self.button['Generate logs'].state == 'down':
+            mod_globals.opt_log = 'log.txt' if self.textInput['Generate logs'].text == '' else self.textInput['Generate logs'].text
         else:
-            mod_globals.opt_log = 'log.txt'
+            mod_globals.opt_log = ''
         if 'wifi' in self.mainbutton.text.lower():
             mod_globals.opt_port = '192.168.0.10:35000'
         else:
@@ -285,6 +286,7 @@ class PYDDT(App):
         avtosd = self.avtos()
         for key in avtosd:
             if key == instance:
+                print avtosd[key][1]
                 for car in avtosd[key]:
                     btn = Button(text=car[3]+' : '+car[4][0], height=(fs * 3,  'dp'), size_hint_y=None)
                     layout.add_widget(btn)
@@ -343,6 +345,16 @@ class PYDDT(App):
         self.bt_dropdown.select(mod_globals.opt_port)
         glay.add_widget(label1)
         glay.add_widget(self.mainbutton)
+        return glay
+
+    def make_input_toggle(self, str1, iText, state):
+        toggle = ToggleButton(state=state, text=str1, size_hint=(1, None), height=(fs * 4,  'dp'))
+        self.button[str1] = toggle
+        ti = TextInput(text=iText, multiline=False, font_size=(fs,  'dp'))
+        self.textInput[str1] = ti
+        glay = GridLayout(cols=2, height=(fs * 3,  'dp'), size_hint=(1, None), padding=10, spacing=10)
+        glay.add_widget(toggle)
+        glay.add_widget(ti)
         return glay
 
     def make_input(self, str1, iText):

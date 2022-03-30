@@ -327,6 +327,9 @@ class DDTScreen():
                                 self.iValue[d] = val
                             self.iValueNeedUpdate[d] = False
         self.update_dInputs()
+        if self.start:
+            self.jid = Clock.schedule_once(self.updateScreen, 0.2)
+            self.decu.rotaryRunAlloved.set()
 
     def buttonPressed(self, btn, key):
         layout = GridLayout(cols=1, padding=10, spacing=10, size_hint=(1, 1))
