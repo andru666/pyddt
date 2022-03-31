@@ -312,7 +312,7 @@ class DDTLauncher(App):
         if ecu==None or ecu['xml']=='':
             self.MyPopup(content='Selected ECU is undefined. Please scan it first.')
             return None
-        self.OpenECUScreens(ecu)
+        Clock.schedule_once(lambda args:self.OpenECUScreens(ecu), 1)
         return
 
     def popup_xml(self, idds, inst):
@@ -791,7 +791,8 @@ class DDTLauncher(App):
                 gc.collect()
             except:
                 pass
-        try:
+        self.elm = ELM(mod_globals.opt_port, mod_globals.opt_speed, mod_globals.opt_log)
+        """try:
             self.elm = ELM(mod_globals.opt_port, mod_globals.opt_speed, mod_globals.opt_log)
         except:
             labelText = '''
@@ -809,7 +810,7 @@ class DDTLauncher(App):
             lbltxt = Label(text=labelText, font_size=mod_globals.fontSize)
             popup_load = Popup(title='ELM connection error', content=lbltxt, size=(800, 800), auto_dismiss=True, on_dismiss=exit)
             popup_load.open()
-            base.runTouchApp()
+            base.runTouchApp()"""
         if mod_globals.opt_speed < mod_globals.opt_rate and not mod_globals.opt_demo:
             self.elm.port.soft_boudrate(mod_globals.opt_rate)
 

@@ -161,7 +161,7 @@ class DDTScreen():
         self.decu.screen = self
         self.winfo_height = int(Window.size[1]*0.9)
         self.winfo_width = int(Window.size[0])
-        
+        Window.bind(on_keyboard=self.key_handler)
         self.approve = True
         self.needupdate = False
         clearScreen ()
@@ -176,13 +176,45 @@ class DDTScreen():
         for x in self.catnames:
             self.button = MyButton(text=x, id=x, on_press=self.OnScreenChange, size_hint=(1, None), height=fs*4)
             self.boxs.add_widget(self.button)
-        self.boxs.add_widget(Button(text='EXIT', size_hint=(1, None), on_press=self.close_EXIT))
+        self.boxs.add_widget(Button(text='EXIT', size_hint=(1, None), on_press=self.exit))
         
         root = ScrollView(size_hint=(1, 1))
         root.add_widget(self.boxs)
         self.popup_select_screen = Popup(title=self.xmlName, title_align='center', content=root, size=(Window.size[0], Window.size[1]), size_hint=(None, None))
         self.popup_select_screen.open()
-    
+
+    def key_handler(self, window, keycode1, keycode2, text, modifiers):
+        global resizeFont
+        if resizeFont:
+            return True
+        if keycode1 == 45 and mod_globals.fontSize > 10:
+            mod_globals.fontSize = mod_globals.fontSize - 1
+            resizeFont = True
+            if self.clock_event is not None:
+                self.clock_event.cancel()
+            self.needupdate = False
+            self.running = False
+            self.stop()
+            return True
+        if keycode1 == 61 and mod_globals.fontSize < 40:
+            mod_globals.fontSize = mod_globals.fontSize + 1
+            resizeFont = True
+            if self.clock_event is not None:
+                self.clock_event.cancel()
+            self.needupdate = False
+            self.running = False
+            self.stop()
+            return True
+        return False
+
+
+    def __del__(self):
+        try:
+            self.exit()
+            gc.collect()
+        except:
+            pass
+
     def close_EXIT(self, dt):
         self.popup_select_screen.dismiss()
         self.exit()
@@ -334,7 +366,6 @@ class DDTScreen():
     def buttonPressed(self, btn, key):
         layout = GridLayout(cols=1, padding=10, spacing=10, size_hint=(1, 1))
         self.decu.rotaryRunAlloved.clear()
-        self.decu.clearELMcache()
         
         if self.jid is not None:
             self.jid = ''
@@ -455,6 +486,7 @@ class DDTScreen():
 
     def OnScreenChange(self, item):
         self.box = GridLayout(cols=1, padding=10, spacing=10, size_hint=(1.0, None))
+        self.box.bind(minimum_height=self.box.setter('height'))
         for a in self.screens[item.id]:
             self.button = Button(text=a, id=a, on_press=lambda bt:self.loadScreen(bt.id), size_hint=(1, None), height=fs*4)
             self.box.add_widget(self.button)
@@ -488,10 +520,12 @@ class DDTScreen():
         self.confirm_popup = Popup(title=title, content=root, size_hint=(None, None), size=(Window.size[0], Window.size[1]*0.6))
         self.confirm_popup.open()
 
-    def exit(self):
+    def exit(self, td):
+        del(self.decu)
+        self.popup_select_screen.dismiss()
         if self.decu is not None:
             self.decu.rotaryRunAlloved.clear()
-            self.decu.rotaryTerminate
+            self.decu.rotaryTerminate.set()
         if self.jid is not None:
             self.jid = None
         if self.jdsu is not None:
@@ -564,7 +598,6 @@ class DDTScreen():
             if self.images is not None: del(self.images)
         except:
             pass
-        del(self.decu)
 
     def hex_to_rgb(self, hex_string):
         hex_string = hex(int(hex_string)).split('x')[-1]
