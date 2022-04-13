@@ -129,18 +129,36 @@ class DDT():
                 dumpIs = True
 
         if mod_globals.opt_demo:
-            print "Loading dump1"
+            lbltxt = Label(text='Loading dump', font_size=20)
+            popup_init = Popup(title='Initializing', content=lbltxt, size=(400, 400), size_hint=(None, None))
+            base.runTouchApp(slave=True)
+            popup_init.open()
+            EventLoop.idle()
+            sys.stdout.flush()
             self.decu.loadDump()
+            EventLoop.window.remove_widget(popup_init)
+            popup_init.dismiss()
+            base.stopTouchApp()
+            EventLoop.window.canvas.clear()
+
         elif mod_globals.opt_dump or not dumpIs:
-            print "Saving dump"
+            lbltxt = Label(text='Save dump', font_size=20)
+            popup_init = Popup(title='Initializing', content=lbltxt, size=(400, 400), size_hint=(None, None))
+            base.runTouchApp(slave=True)
+            popup_init.open()
+            EventLoop.idle()
+            sys.stdout.flush()
             self.decu.saveDump()
+            EventLoop.window.remove_widget(popup_init)
+            popup_init.dismiss()
+            base.stopTouchApp()
+            EventLoop.window.canvas.clear()
         
         if not self.decu.ecufname.startswith(mod_globals.ddtroot):
             tmp_f_name = self.decu.ecufname.split('/')[-1]
             self.decu.ecufname = 'ecus/'+tmp_f_name
 
         if not mod_db_manager.file_in_ddt(self.decu.ecufname):
-            print "No such file: ", self.decu.ecufname
             return None
 
         ns = {'ns0': 'http://www-diag.renault.com/2002/ECU',
@@ -181,6 +199,8 @@ class DDTLauncher(App):
         self.pl = mod_ddt_utils.ddtProjects()
         self.ecutree = {}
         self.v_proj = ''
+        self.jid = None
+        self.running = True
         self.v_addr = ''
         self.v_vin = ''
         self.v_pcan = ''
@@ -221,31 +241,12 @@ class DDTLauncher(App):
             self.ScanAllBtnClick()
         
         super(DDTLauncher, self).__init__()
-        Window.bind(on_keyboard=self.key_handler)
 
-    def key_handler(self, window, keycode1, keycode2, text, modifiers):
-        global resizeFont
-        if resizeFont:
-            return True
-        if keycode1 == 45 and mod_globals.fontSize > 10:
-            mod_globals.fontSize = mod_globals.fontSize - 1
-            resizeFont = True
-            if self.clock_event is not None:
-                self.clock_event.cancel()
-            self.needupdate = False
-            self.running = False
-            self.stop()
-            return True
-        if keycode1 == 61 and mod_globals.fontSize < 40:
-            mod_globals.fontSize = mod_globals.fontSize + 1
-            resizeFont = True
-            if self.clock_event is not None:
-                self.clock_event.cancel()
-            self.needupdate = False
-            self.running = False
-            self.stop()
-            return True
-        return False
+    def on_pause(self):
+        self.running = False
+
+    def on_resume(self):
+        self.running = True
 
     def finish(self, instance):
         self.stop()
@@ -316,8 +317,6 @@ class DDTLauncher(App):
         return
 
     def popup_xml(self, idds, inst):
-        print idds
-        print inst
         time.sleep(1)
         self.dv_addr = inst
         self.getXmlListByProj()
@@ -326,10 +325,13 @@ class DDTLauncher(App):
         for v in self.v_xmlList:
             btn = MyButton(text=v, size_hint=(1, None), height=fs*4, on_press=lambda bts, ids = idds: self.select_xml(bts, ids))
             layout.add_widget(btn)
+        btn_close = MyButton(text='CLOSE', size_hint=(1, None), height=fs*4)
+        layout.add_widget(btn_close)
         root = ScrollView(size_hint=(1, 1))
         root.add_widget(layout)
         self.popup = Popup(title='Select xml ECU', content=root, size_hint=(None, None), size=(Window.size[0], Window.size[1]*0.9))
-        self.popup.open()
+        self.popup.open()        
+        btn_close.bind(on_press=self.popup.dismiss)
 
     def popup_dump(self, bt):
         bt.background_color= (0,1,0,1)
@@ -406,7 +408,6 @@ class DDTLauncher(App):
         decu = None
         try:
             self.enableELM()
-            print mod_globals.opt_demo
         except:
             return
         if not mod_globals.opt_demo and self.var_dump:
@@ -451,9 +452,7 @@ class DDTLauncher(App):
                     dumpIs = True
                     break
         os.path.join(mod_globals.dumps_dir, )
-        if mod_globals.opt_demo:
-            print "Loading dump"
-            
+        if mod_globals.opt_demo:            
             if len(ce['dump'])==0:
                 decu.loadDump()
             else:
@@ -467,19 +466,16 @@ class DDTLauncher(App):
             self.SaveBtnClick()
 
         if not mod_db_manager.file_in_ddt(decu.ecufname):
-            print "No such file: ", decu.ecufname
             return None
         ns = {'ns0': 'http://www-diag.renault.com/2002/ECU',
               'ns1': 'http://www-diag.renault.com/2002/screens'}
         tree = et.parse(mod_db_manager.get_file_from_ddt(decu.ecufname))
         xdoc = tree.getroot()
-        print "Show screen"
         scr = DDTScreen(decu.ecufname, xdoc, decu, top=True)
         del scr
         del decu
 
     def renewEcuList(self):
-        print 'renewEcuList'
         self.ecutree = []
         for ecu in mod_ddt_utils.multikeysort( self.carecus, ['undef','addr']):
             columns = (ecu['iso8'], ecu['xid'], ecu['rid'], ecu['prot'], ecu['type'], ecu['name'], ecu['xml'], ecu['dump'], ecu)
@@ -778,7 +774,6 @@ class DDTLauncher(App):
         del popup_scan
         if self.v_vin=='' and len(vins.keys()):
             self.v_vin = (max(vins.iteritems(), key=operator.itemgetter(1))[0])
-        print self.progress
         self.progress['value'] = 0
         return
 

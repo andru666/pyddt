@@ -104,13 +104,19 @@ def set_orientation_portrait():
 class MyGridLayout(GridLayout):
     def __init__(self, **kwargs):
         super(MyGridLayout, self).__init__(**kwargs)
+        self.pos_hint={"top": 1, "left": 1}
+        
         if 'bgcolor' in kwargs:
             self.bgcolor = kwargs['bgcolor']
         else:
-            self.bgcolor =(0, 0, 0, 1)
+            self.bgcolor =(1, 0, 0, 1)
+    def on_size(self, *args):
+        if not self.canvas:
+            return
+        self.canvas.before.clear()
         with self.canvas.before:
             Color(self.bgcolor[0], self.bgcolor[1], self.bgcolor[2], self.bgcolor[3])
-            Rectangle(pos=self.pos, size=self.size)
+            Rectangle(pos=(self.pos[0],self.pos[1]), size=(self.size[0], self.size[1]))
 
 class MyLabel(Label):
     global fs
@@ -179,10 +185,10 @@ class PYDDT(App):
         return False
 
     def build(self):
-        layout = MyGridLayout(cols=1, padding=10, spacing=20, size_hint=(1, None))
+        layout = GridLayout(cols=1, padding=10, spacing=20, size_hint=(1, None))
         layout.bind(minimum_height=layout.setter('height'))
         
-        layout.add_widget(MyLabel(text='PyDDT', font_size=fs * 2, size_hint=(1, None)))
+        layout.add_widget(MyLabel(text='PyDDT', font_size=(fs*3, 'dp'), height=(fs*3, 'dp'), size_hint=(1, None)))
         try:
             self.archive = str(mod_globals.ddtroot).rpartition('/')[2]
         except:
@@ -204,7 +210,7 @@ class PYDDT(App):
 
     def scanALLecus(self, instance):
         self.finish(instance)
-        label = MyLabel(text='Not select car')
+        label = Label(text='Not select car')
         popup = Popup(title='ERROR', content=label, size=(400, 400), size_hint=(None, None))
         if mod_globals.opt_car != 'ALL CARS':
             
@@ -218,17 +224,17 @@ class PYDDT(App):
             return
     
     def OpenEcu(self, instance):
-        print instance
         if instance.id == 'demo': mod_globals.open_demo = True
         self.finish(instance.id)
-        #mod_globals.savedCAR = 'savedCAR_duster.csv'
-        label = MyLabel(text='Not select car or savedCAR')
+        label = Label(text='Not select car or savedCAR')
         popup = Popup(title='ERROR', content=label, size=(400, 400), size_hint=(None, None))
         if mod_globals.opt_car != 'ALL CARS' or (mod_globals.savedCAR != 'Select'):
             instance.background_color= (0,1,0,1)
             self.stop()
-            Clock.schedule_once(mod_ddt.DDTLauncher(mod_globals.opt_car).run(), 1)
-            
+            try:
+                Clock.schedule_once(mod_ddt.DDTLauncher(mod_globals.opt_car).run(), 1)
+            except:
+                pass
         else:
             popup.open()
             return
@@ -237,7 +243,7 @@ class PYDDT(App):
         ecus = sorted(glob.glob(os.path.join(mod_globals.user_data_dir, 'savedCAR_*.csv')))
         toggle = Button(text='Load savedCAR', id='open', background_color=(1,0,1,1), size_hint=(1, None), height=(fs * 3,  'dp'), on_press=lambda bt:self.OpenEcu(bt))
         self.ecus_dropdown = DropDown(size_hint=(1, None), height=(fs,  'dp'))
-        glay = MyGridLayout(cols=2, height=(fs * 3,  'dp'), size_hint=(1, None), padding=10, spacing=10)
+        glay = MyGridLayout(cols=2, padding=(fs/2,  'dp'), height=(fs * 4,  'dp'), spadding=20, size_hint=(1, None))
         for s_ecus in ecus:
             s_ecus = os.path.split(s_ecus)[1]
             btn= Button(text=s_ecus, size_hint_y=None, height=(fs * 3,  'dp'))
@@ -281,8 +287,8 @@ class PYDDT(App):
         if mod_globals.opt_car != 'ALL CARS'and mod_globals.savedCAR != 'Select':self.stop()
 
     def in_car(self):
-        glay = MyGridLayout(cols=2, height=(fs * 3,  'dp'), size_hint=(1, None), padding=10, spacing=10)
-        label1 = MyLabel(text='Car', halign='left', size_hint=(1, None), height=(fs * 3,  'dp'), font_size=(fs,  'dp'))
+        glay = MyGridLayout(cols=2, padding=(fs/2,  'dp'), height=(fs * 4,  'dp'), spadding=20, size_hint=(1, None))
+        label1 = MyLabel(text='Car', halign='left', size_hint=(1, None), height=(fs * 3,  'dp'))
         label1.bind(size=label1.setter('text_size'))
         glay.add_widget(label1)
         self.dropdown = DropDown(size_hint=(1, None), height=(fs * 3,  'dp'))
@@ -298,12 +304,11 @@ class PYDDT(App):
         return glay
 
     def popup_in_car(self, instance):
-        layout = MyGridLayout(cols=1, padding=10, spacing=20, size_hint=(1.0, None))
+        layout = MyGridLayout(cols=1, padding=(fs/2,  'dp'), height=(fs * 4,  'dp'), spadding=20, size_hint=(1.0, None))
         layout.bind(minimum_height=layout.setter('height'))
         avtosd = self.avtos()
         for key in avtosd:
             if key == instance:
-                print avtosd[key][1]
                 for car in avtosd[key]:
                     btn = Button(text=car[3]+' : '+car[4][0], height=(fs * 3,  'dp'), size_hint_y=None)
                     layout.add_widget(btn)
@@ -326,23 +331,23 @@ class PYDDT(App):
         return self.ptree
 
     def make_box_switch(self, str1, active, callback = None):
-        label1 = MyLabel(text=str1, halign='left', size_hint=(1, None), height=(fs * 2,  'dp'), font_size=(fs,  'dp'))
+        label1 = MyLabel(text=str1, halign='left', size_hint=(1, None), height=(fs * 3,  'dp'))
         sw = Switch(active=active, size_hint=(1, None), height=(fs * 3,  'dp'))
         if callback:
             sw.bind(active=callback)
         self.button[str1] = sw
         label1.bind(size=label1.setter('text_size'))
-        glay = MyGridLayout(cols=2, height=(fs * 3,  'dp'), size_hint=(1, None), padding=10, spacing=10)
+        glay = MyGridLayout(cols=2, padding=(fs/2,  'dp'), height=(fs * 4,  'dp'), spadding=20, size_hint=(1, None))
         glay.add_widget(label1)
         glay.add_widget(sw)
         return glay
 
     def make_bt_device_entry(self):
         ports = mod_ddt_utils.getPortList()
-        label1 = MyLabel(text='ELM port', halign='left', size_hint=(1, None), height=(fs,  'dp'), font_size=(fs,  'dp'))
+        label1 = MyLabel(text='ELM port', halign='left', size_hint=(1, None), height=(fs*3,  'dp'))
         self.bt_dropdown = DropDown(size_hint=(1, None), height=(fs * 2,  'dp'))
         label1.bind(size=label1.setter('text_size'))
-        glay = MyGridLayout(cols=2, height=(fs * 3,  'dp'), size_hint=(1, None), padding=10, spacing=10)
+        glay = MyGridLayout(cols=2, padding=(fs/2,  'dp'), height=(fs * 4,  'dp'), spadding=20, size_hint=(1, None))
         btn = Button(text='WiFi (192.168.0.10:35000)', size_hint_y=None, height=(fs * 3,  'dp'))
         btn.bind(on_release=lambda btn: self.bt_dropdown.select(btn.text))
         self.bt_dropdown.add_widget(btn)
@@ -369,16 +374,16 @@ class PYDDT(App):
         self.button[str1] = toggle
         ti = TextInput(text=iText, multiline=False, font_size=(fs,  'dp'))
         self.textInput[str1] = ti
-        glay = MyGridLayout(cols=2, height=(fs * 3,  'dp'), size_hint=(1, None), padding=10, spacing=10)
+        glay = MyGridLayout(cols=2, padding=(fs/2,  'dp'), height=(fs * 4,  'dp'), spadding=20, size_hint=(1, None))
         glay.add_widget(toggle)
         glay.add_widget(ti)
         return glay
 
     def make_input(self, str1, iText):
-        label1 = MyLabel(text=str1, halign='left', size_hint=(1, None), height=(fs * 3,  'dp'), font_size=(fs,  'dp'))
+        label1 = MyLabel(text=str1, halign='left', size_hint=(1, None), height=(fs * 3,  'dp'))
         ti = TextInput(text=iText, multiline=False, font_size=(fs,  'dp'))
         self.textInput[str1] = ti
-        glay = MyGridLayout(cols=2, height=fs * 3, size_hint=(1, None), padding=10, spacing=10)
+        glay = MyGridLayout(cols=2, padding=(fs/2,  'dp'), height=(fs * 4,  'dp'), spadding=20, size_hint=(1, None))
         glay.add_widget(label1)
         glay.add_widget(ti)
         return glay

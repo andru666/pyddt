@@ -1,6 +1,4 @@
-#!/usr/bin/env python
 # -*- coding: utf-8 -*-
-
 
 import sys, os
 import math
@@ -72,7 +70,6 @@ class decu_data:
           'ns1': 'http://www-diag.renault.com/2002/screens'}
   
     self.Name  = dt.attrib["Name"]
-    #print self.Name
 
     self.Comment = ""
     Comment = dt.findall("ns0:Comment",ns)
@@ -176,5 +173,4 @@ class decu_datas:
       for dt in datas:
         data = decu_data( dt )
         data_list[data.Name] = data
-        #print data
         

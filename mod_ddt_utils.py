@@ -91,20 +91,13 @@ def getPortList():
     return devs
 
 def loadECUlist():
-
-    # make or load eculist
-    print "Loading eculist"
     eculistcache = os.path.join(mod_globals.cache_dir, "ddt_eculist.p")
 
-    if os.path.isfile(eculistcache):  # if cache exists
-        eculist = pickle.load(open(eculistcache, "rb"))  # load it #dbaccess
+    if os.path.isfile(eculistcache):
+        eculist = pickle.load(open(eculistcache, "rb"))
     else:
-
-        # open xml
         eculistfilename = 'ecus/eculist.xml'
-        #if not os.path.isfile(eculistfilename):
         if not mod_db_manager.file_in_ddt(eculistfilename):
-            print "No such file: "+eculistfilename
             return None
 
         ns = {'ns0': 'http://www-diag.renault.com/2002/ECU',
@@ -151,7 +144,7 @@ def loadECUlist():
                                         air['Version'] = AutoIdent.attrib["Version"].strip()
                                         ail.append(air)
                         eculist[Address]["targets"][href]['AutoIdents'] = ail
-        pickle.dump(eculist, open(eculistcache, "wb"))  # and save cache #dbaccess
+        pickle.dump(eculist, open(eculistcache, "wb"))
     
     return eculist
 

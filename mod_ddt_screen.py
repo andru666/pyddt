@@ -122,26 +122,26 @@ class DDTScreen():
     xmlName = ''
     Screens = {}
     dDisplay = {}
-    dValue = {}  # display value indexed by DataName
-    iValue = {}  # input   value indexed by DataName
+    dValue = {}
+    iValue = {}
     iValueNeedUpdate = {}
-    dReq = {}  # request names
-    sReq_dl = {}  # delays for requests sent thru starting the screen
-    sReq_lst = []  # list of requests sent thru starting the screen(order is important)
+    dReq = {}
+    sReq_dl = {}
+    sReq_lst = []
     dBtnSend = {}
     dFrames = []
-    dObj = []  # objects for place_forget
-    tObj = {}  # objects for text captions
+    dObj = []
+    tObj = {}
     start = True
     jid = None
     firstResize = False
     jdsu = None
     firstResize = False
-    prefer_ECU = True  # type would be changed
+    prefer_ECU = True
     
     currentscreen = None
     
-    scf = 1.0  # font scale factor
+    scf = 1.0
     
     def __init__(self, ddtFileName, xdoc, decu, top = False):
         global fs
@@ -154,14 +154,15 @@ class DDTScreen():
         
         self.blue_part_size = 0.75
         self.scrnames = []
+        self.iLabels = {}
         self.Labels = {}
+        self.dLabels = {}
         self.xmlName = ddtFileName
         self.xdoc = xdoc
         self.decu = decu
         self.decu.screen = self
         self.winfo_height = int(Window.size[1]*0.9)
         self.winfo_width = int(Window.size[0])
-        Window.bind(on_keyboard=self.key_handler)
         self.approve = True
         self.needupdate = False
         clearScreen ()
@@ -183,38 +184,6 @@ class DDTScreen():
         self.popup_select_screen = Popup(title=self.xmlName, title_align='center', content=root, size=(Window.size[0], Window.size[1]), size_hint=(None, None))
         self.popup_select_screen.open()
 
-    def key_handler(self, window, keycode1, keycode2, text, modifiers):
-        global resizeFont
-        if resizeFont:
-            return True
-        if keycode1 == 45 and mod_globals.fontSize > 10:
-            mod_globals.fontSize = mod_globals.fontSize - 1
-            resizeFont = True
-            if self.clock_event is not None:
-                self.clock_event.cancel()
-            self.needupdate = False
-            self.running = False
-            self.stop()
-            return True
-        if keycode1 == 61 and mod_globals.fontSize < 40:
-            mod_globals.fontSize = mod_globals.fontSize + 1
-            resizeFont = True
-            if self.clock_event is not None:
-                self.clock_event.cancel()
-            self.needupdate = False
-            self.running = False
-            self.stop()
-            return True
-        return False
-
-
-    def __del__(self):
-        try:
-            self.exit()
-            gc.collect()
-        except:
-            pass
-
     def close_EXIT(self, dt):
         self.popup_select_screen.dismiss()
         self.exit()
@@ -226,11 +195,42 @@ class DDTScreen():
         return glay
 
     def close_Screen(self, dt):
+        self.popup_select_screen.open()
         self.popup.dismiss()
         self.startStop()
         self.start = False
         self.decu.rotaryRunAlloved.clear()
         self.jid = ''
+
+    def make_box_params(self, i):
+        glay = BoxLayout(orientation='horizontal', size_hint=(1, None), height=fs * 2.0)
+        label1 = MyLabelGreen(text=i, halign='left', valign='top', size_hint=(0.5, 1), font_size=fs)
+        glay.add_widget(label1)
+        if i in self.dValue:
+            label_D = MyLabelBlue(text=self.dValue[i], size_hint=(0.25, 1))
+            self.dLabels[i] = label_D
+            glay.add_widget(label_D)
+        if i in self.iValue:
+            if self.iValue[i] == 'Enter here':
+                label_IT = TextInput(text=self.iValue[i], size_hint=(0.25, 1))
+                self.iLabels[i] = label_IT
+                glay.add_widget(label_IT)
+            else:
+                label_IT = MyLabelBlue(text=self.iValue[i], size_hint=(0.25, 1))
+                self.iLabels[i] = label_IT
+                glay.add_widget(label_IT)
+        if i in self.ListOption.keys():
+            self.dropdowns[i] = DropDown()
+            for o in self.ListOption[i]:
+                btn = Button(text=o, id=o, size_hint=(0.25, None), height=fs*2)
+                btn.bind(on_release=lambda btn=btn, i=i: self.select_option(btn.text, i))
+                self.dropdowns[i].add_widget(btn)
+            self.triggers[i] = Button(text=self.ListOption[i][0], id=i, size_hint=(0.25, 1))
+            self.triggers[i].bind(on_release=self.dropdowns[i].open)
+            self.Labels[i] = self.triggers[i]
+            self.dropdowns[i].bind(on_select=lambda instance, x: setattr(self.triggers[i], 'text', x))
+            glay.add_widget(self.triggers[i])
+        return glay
 
     def select_option(self, bt, i):
         self.dropdowns[i].dismiss()
@@ -239,7 +239,10 @@ class DDTScreen():
 
     def open_Screen(self):
         if self.start:
-            self.jid = Clock.schedule_once(self.updateScreen, 0.2)
+            if len(self.iValue) > 20:
+                self.jid = Clock.schedule_once(self.updateScreen, 1)
+            else:
+                self.jid = Clock.schedule_once(self.updateScreen, 0.2)
             self.decu.rotaryRunAlloved.set()
         self.startStopButton = MyButton(text='STOP', size_hint=(1, 1))
         self.winfo_width, self.winfo_height = self.size_screen
@@ -270,18 +273,20 @@ class DDTScreen():
                         btn = Button(text=o, id=o, font_size=int(self.ddt_fontI[i]['size']), size_hint_y=None, height=self.ddt_inputs[i]['height'])
                         btn.bind(on_release=lambda btn=btn, i=i: self.select_option(btn.text, i))
                         self.dropdowns[i].add_widget(btn)
-                    self.triggers[i] = Button(text='None', id=i, size_hint=(None, None), font_size=int(self.ddt_fontI[i]['size']), size=(self.ddt_inputs[i]['widthV'], self.ddt_inputs[i]['height']), pos=(self.ddt_inputs[i]['leftV'], self.winfo_height-self.ddt_inputs[i]['top']))
+                    self.triggers[i] = Button(text=self.ListOption[i][0], id=i, size_hint=(None, None), font_size=int(self.ddt_fontI[i]['size']), size=(self.ddt_inputs[i]['widthV'], self.ddt_inputs[i]['height']), pos=(self.ddt_inputs[i]['leftV'], self.winfo_height-self.ddt_inputs[i]['top']))
                     self.triggers[i].bind(on_release=self.dropdowns[i].open)
                     self.Labels[i] = self.triggers[i]
+                    if i not in self.iValue.keys():
+                        self.iValue[i] = ''
                     self.dropdowns[i].bind(on_select=lambda instance, x: setattr(self.triggers[i], 'text', x))
                     flayout.add_widget(self.triggers[i])
                 elif self.iValue[i] == 'Enter here':
                     label_IT = TextInput(text=self.iValue[i], valign=self.ddt_fontI[i]['anchor'], color=self.IddtColor[i]['xfcolor'], bgcolor=(0, 1, 0, 1), bold=self.ddt_fontI[i]['bold'], italic=self.ddt_fontI[i]['italic'], font_size=int(self.ddt_fontI[i]['size']), size_hint=(None, None), size=(self.ddt_inputs[i]['widthV'], self.ddt_inputs[i]['height']), pos=(self.ddt_inputs[i]['leftV'], self.winfo_height-self.ddt_inputs[i]['top']))
-                    self.Labels[i] = label_IT
+                    self.iLabels[i] = label_IT
                     flayout.add_widget(label_IT)
                 else:
                     label_I = MyLabel(text=self.iValue[i], valign=self.ddt_fontI[i]['anchor'], color=self.IddtColor[i]['xfcolor'], bgcolor=(0, 1, 0, 1), bold=self.ddt_fontI[i]['bold'], italic=self.ddt_fontI[i]['italic'], font_size=int(self.ddt_fontI[i]['size']), size_hint=(None, None), size=(self.ddt_inputs[i]['widthV'], self.ddt_inputs[i]['height']), pos=(self.ddt_inputs[i]['leftV'], self.winfo_height-self.ddt_inputs[i]['top']))
-                    self.Labels[i] = label_I
+                    self.iLabels[i] = label_I
                     flayout.add_widget(label_I)
                 self.needupdate = True
 
@@ -297,7 +302,7 @@ class DDTScreen():
                     label = MyLabel(text=i, id=i, valign=self.ddt_fontD[i]['anchor'], color=self.DddtColor[i]['xfcolor'], bold=self.ddt_fontD[i]['bold'], italic=self.ddt_fontD[i]['italic'], font_size=int(self.ddt_fontD[i]['size']), halign='left', bgcolor=self.DddtColor[i]['xcolor'], size_hint=(None, None), size=(self.ddt_dispalys[i]['width'], self.ddt_dispalys[i]['height']), pos=(self.ddt_dispalys[i]['left'], self.winfo_height-self.ddt_dispalys[i]['top']))
                     flayout.add_widget(label)
                 label_D = MyLabel(text=self.dValue[i], valign=self.ddt_fontD[i]['anchor'], bgcolor=(0, 1, 0, 1), color=self.DddtColor[i]['xfcolor'], bold=self.ddt_fontD[i]['bold'], italic=self.ddt_fontD[i]['italic'], font_size=int(self.ddt_fontD[i]['size']), size_hint=(None, None), size=(self.ddt_dispalys[i]['widthV'], self.ddt_dispalys[i]['height']), pos=(self.ddt_dispalys[i]['leftV'], self.winfo_height-self.ddt_dispalys[i]['top']))
-                self.Labels[i] = label_D
+                self.dLabels[i] = label_D
                 flayout.add_widget(label_D)
                 self.needupdate = True
         layout3.add_widget(flayout)
@@ -360,7 +365,10 @@ class DDTScreen():
                             self.iValueNeedUpdate[d] = False
         self.update_dInputs()
         if self.start:
-            self.jid = Clock.schedule_once(self.updateScreen, 0.2)
+            if len(self.iValue) > 20:
+                self.jid = Clock.schedule_once(self.updateScreen, 1)
+            else:
+                self.jid = Clock.schedule_once(self.updateScreen, 0.2)
             self.decu.rotaryRunAlloved.set()
 
     def buttonPressed(self, btn, key):
@@ -381,8 +389,11 @@ class DDTScreen():
         smap = {}
         error = False
         for i in self.iValue.keys():
+            if i in self.iLabels:
+                self.iValue[i] = self.iLabels[i].text
             if i in self.Labels:
                 self.iValue[i] = self.Labels[i].text
+        
         for send in sends:
             delay = send['Delay']
             requestName = send['RequestName']
@@ -420,11 +431,15 @@ class DDTScreen():
                 break
             (req,rsp) = self.decu.rotaryResultsQueue.get_nowait()
             self.updateScreenValues(req,rsp)
-        self.jid = Clock.schedule_once(self.updateScreen, 0.2)
+        if len(self.iValue) > 20:
+            self.jid = Clock.schedule_once(self.updateScreen, 1)
+        else:
+            self.jid = Clock.schedule_once(self.updateScreen, 0.2)
         tb = time.time()
         self.tl = tb
 
     def updateScreenValues(self, req, rsp ):
+
         if req is None or rsp is None:
             return
         request_list = []
@@ -445,46 +460,38 @@ class DDTScreen():
             val = self.decu.getValue(d)
             if d in self.dValue.keys():
                 if ':' in val:
-                    self.Labels[d].text=(val.split(':')[1])
+                    self.dLabels[d].text=(val.split(':')[1])
                 else:
-                    self.Labels[d].text=(val)
+                    self.dLabels[d].text=(val)
             if d in self.iValue.keys() and self.iValueNeedUpdate[d]:
                 if self.prefer_ECU:
                     if len(self.decu.datas[d].List) or self.decu.datas[d].BytesASCII or self.decu.datas[d].Scaled:
-                        self.Labels[d].text =(val)
+                        self.iLabels[d].text =(val)
                     else:
                         val = self.decu.getHex(d)
                         if val!=mod_globals.none_val:
                             val = '0x' + val
-                        self.Labels[d].text =(val)
+                        self.iLabels[d].text =(val)
                 else:
                     cmd = self.decu.cmd4data[d]
                     val = self.decu.getValue(d, request=self.decu.requests[cmd],
                                              responce=self.decu.requests[cmd].SentBytes)
                     if len(self.decu.datas[d].List) or self.decu.datas[d].BytesASCII or self.decu.datas[d].Scaled:
-                        self.Labels[d].text =(val)
+                        self.iLabels[d].text =(val)
                     else:
                         val = self.decu.getHex(d, request=self.decu.requests[cmd],
                                                responce=self.decu.requests[cmd].SentBytes)
                         if val!=mod_globals.none_val:
                             val = '0x' + val
-                        self.Labels[d].text =(val)
+                        self.iLabels[d].text =(val)
                 self.iValueNeedUpdate[d] = False
-
+        
     def update_dInputs(self):
         for i in self.iValueNeedUpdate.keys():
             self.iValueNeedUpdate[i] = True
 
-    def make_box_params(self, parameter_name, val):
-        glay = BoxLayout(orientation='horizontal', size_hint=(1, None), height=fs * 2.0)
-        label1 = MyLabelGreen(text=parameter_name, halign='left', valign='top', size_hint=(self.blue_part_size, None), font_size=fs)
-        label2 = MyLabelBlue(text=val, halign='right', valign='top', size_hint=(1 - self.blue_part_size, 1), font_size=fs)
-        glay.add_widget(label1)
-        glay.add_widget(label2)
-        self.Labels[parameter_name] = label2
-        return glay
-
     def OnScreenChange(self, item):
+        self.popup_select_screen.dismiss()
         self.box = GridLayout(cols=1, padding=10, spacing=10, size_hint=(1.0, None))
         self.box.bind(minimum_height=self.box.setter('height'))
         for a in self.screens[item.id]:
@@ -521,6 +528,7 @@ class DDTScreen():
         self.confirm_popup.open()
 
     def exit(self, td):
+        self.start = False
         del(self.decu)
         self.popup_select_screen.dismiss()
         if self.decu is not None:
@@ -636,7 +644,10 @@ class DDTScreen():
             self.start = True
             self.startStopButton.text = 'STOP'
             self.decu.rotaryRunAlloved.set()
-            self.jid = Clock.schedule_once(self.updateScreen, 0.2)
+            if len(self.iValue) > 20:
+                self.jid = Clock.schedule_once(self.updateScreen, 1)
+            else:
+                self.jid = Clock.schedule_once(self.updateScreen, 0.2)
 
     def initUI(self):
         screenTitle = self.xmlName
@@ -706,9 +717,8 @@ class DDTScreen():
                 continue
             self.decu.putToRotary(req)
 
-
     def loadScreen(self, scr):
-        print
+        self.popup_screen.dismiss()
         ns = mod_globals.ns
         if scr in self.Screens.keys():
             scr = self.Screens[scr]
@@ -724,8 +734,8 @@ class DDTScreen():
         self.winfo_height = self.winfo_height * self.scf
         self.winfo_width = self.winfo_width * self.scf
         bg_color = scr.attrib["Color"]
-        scx = 1*self.scf  # scale X
-        scy = 1*self.scf  # scale Y
+        scx = 1*self.scf
+        scy = 1*self.scf
         max_x = 0.0
         max_y = 0.0
         recs = scr.findall("*/ns1:Rectangle", ns)
@@ -768,10 +778,7 @@ class DDTScreen():
         self.DddtColor = {}
         self.LddtColor = {}
         self.IddtColor = {}
-        
-        #scx = int(max_x / self.winfo_width+1)
-        #scy = int(max_y / self.winfo_height+1)
-        
+
         _minInputHeight = int(self.minInputHeight(scr)) / 25
         _minButtonHeight = int(self.minButtonHeight(scr)) / 25
         h = 0
@@ -779,8 +786,6 @@ class DDTScreen():
 
         if _minInputHeight == 0: _minInputHeight = 10
         if _minButtonHeight == 0: _minButtonHeight = 20
-        #scx = min([scx, 20])
-        #scy = min([scy, _minInputHeight, _minButtonHeight, 10])
         self.size_screen = (max_x / scx, max_y / scy)
 
         labels = scr.findall("ns1:Label", ns)
@@ -829,7 +834,6 @@ class DDTScreen():
                     self.LddtColor[xText] = dict(xcolor=self.hex_to_rgb(65535), xfcolor=self.hex_to_rgb(xfColor))
                 
                 if xText == 'New label': continue
-                #if xColor == xfColor: continue
                 xfSize = str(int(float(xfSize)*15/self.scf))
                 
                 if xrLeft < 0: xrLeft = 0
@@ -840,12 +844,12 @@ class DDTScreen():
                 
                 if xAlignment == '1':
                     xrTop = xrTop + xrHeight / 2
-                    xAlignment = 'middle'#'w'
+                    xAlignment = 'middle'
                 elif xAlignment == '2':
                     xrLeft = xrLeft + xrWidth / 2
-                    xAlignment = 'top'#'n'
+                    xAlignment = 'top'
                 else:
-                    xAlignment = 'middle'#'nw'
+                    xAlignment = 'middle'
                 
                 self.ddt_fontL[xText] = dict(name=xfName, size=xfSize, bold=xfBold, italic=xfItalic, anchor=xAlignment)
                 
@@ -910,8 +914,6 @@ class DDTScreen():
                 self.dDisplay[xText] = 1
                 self.ddt_dispalys[xText] = dict(left=xrLeft, top=xrTop+xrHeight, width=xrWidth, height=xrHeight, leftV=xrLeft + xWidth, widthV=xrWidth - xWidth, xw=xWidth)
                 
-                #if xColor == xfColor: continue
-                
                 xfSize = str(int(float(xfSize)*15/self.scf))
                 
                 if xrLeft < 0: xrLeft = 0
@@ -923,12 +925,12 @@ class DDTScreen():
                 self.DddtColor[xText] = dict(xcolor=self.hex_to_rgb(xColor), xfcolor=self.hex_to_rgb(xfColor))
                 
                 if xAlignment == '1':
-                    xAlignment = 'bottom'#'w'
+                    xAlignment = 'bottom'
                 elif xAlignment == '2':
                     xrLeft = xrLeft + xrWidth / 2
-                    xAlignment = 'top'#'n'
+                    xAlignment = 'top'
                 else:
-                    xAlignment = 'middle'#'nw'
+                    xAlignment = 'middle'
                 
                 if xWidth > 40:
                     tText = xText
@@ -967,9 +969,6 @@ class DDTScreen():
                     xfColor = xFont.attrib["Color"]
 
                 self.ddt_inputs[xText] = dict(left=xrLeft, top=xrTop+xrHeight, width=xrWidth, height=xrHeight, leftV=xrLeft + xWidth, widthV=xrWidth - xWidth, xw=xWidth)
-                
-                #if xColor == xfColor: continue
-                
                 xfSize = str(int(float(xfSize)*10/self.scf))
                 if xrLeft < 0: xrLeft = 0
                 if xrTop < 0: xrTop = 0
@@ -981,12 +980,12 @@ class DDTScreen():
                 
                 if xAlignment == '1':
                     xrTop = xrTop + xrHeight / 2
-                    xAlignment = 'bottom'#'w'
+                    xAlignment = 'bottom'
                 elif xAlignment == '2':
                     xrLeft = xrLeft + xrWidth / 2
-                    xAlignment = 'top'#'n'
+                    xAlignment = 'top'
                 else:
-                    xAlignment = 'middle'#'nw'
+                    xAlignment = 'middle'
                 
                 if xWidth > 40:
                     tText = xText
@@ -1094,6 +1093,12 @@ class DDTScreen():
         self.open_Screen()
 
     def loadSyntheticScreen(self, rq):
+        if self.start:
+            if len(self.iValue) > 20:
+                self.jid = Clock.schedule_once(self.updateScreen, 1)
+            else:
+                self.jid = Clock.schedule_once(self.updateScreen, 0.2)
+            self.decu.rotaryRunAlloved.set()
         read_cmd = self.decu.requests[rq].SentBytes
         if read_cmd[:2]=='21':
             read_cmd = read_cmd[:4]
@@ -1115,17 +1120,18 @@ class DDTScreen():
         del( set1 )
         del( set2 )
         
-        self.dValue = {} # value indexed by DataName
-        self.iValue = {}  # value indexed by DataName param with choise
+        self.dValue = {}
+        self.iValue = {}
         self.iValueNeedUpdate = {}
-        self.dReq = {}  # request names
-        self.sReq_dl = {}  # delays for requests sent thru starting the screen
-        self.sReq_lst = []  # list of requests sent thru starting the screen(order is important)
-        self.dDisplay = {}  # displays object for renew
-        self.dObj = []  # objects for place_forget
-        self.tObj = {}  # objects for text captions
-        self.dFrames = []  # container frames
-        self.images = []  # images
+        self.dReq = {}
+        self.sReq_dl = {}
+        self.sReq_lst = []
+        self.dDisplay = {}
+        self.dObj = []
+        self.tObj = {}
+        self.dFrames = []
+        self.images = []
+        self.ListOption = {}
         
         max_x = Window.size[0]
         max_y = 200 + len(self.decu.requests[rq].ReceivedDI)*40
@@ -1134,14 +1140,13 @@ class DDTScreen():
         layout = GridLayout(cols=1, padding=10, spacing=10, size_hint=(1, None))
         layout.bind(minimum_height=layout.setter('height'))
         tfSize = str(int(float(20) * self.scf))
-        title = self.decu.requests[rq].SentBytes + ' - ' + rq
-        
+        self.dropdowns = {}
+        self.triggers = {}
         xfSize = str(int(float(10) * self.scf))
+        xText = self.decu.requests[rq].SentBytes + ' - ' + rq
         pn = 0
         for xText, zzz in sorted(self.decu.requests[rq].ReceivedDI.items(), key=lambda item: item[1].FirstByte):
-            
             pn += 1
-            
             self.dDisplay[xText] = 1
             yTop = 30 + pn * 40
             
@@ -1149,8 +1154,30 @@ class DDTScreen():
                 self.dValue[xText] = mod_globals.none_val
                 if xText in self.decu.req4data.keys() and self.decu.req4data[xText] in self.decu.requests.keys():
                     self.dReq[self.decu.req4data[xText]] = self.decu.requests[self.decu.req4data[xText]].ManuelSend
-            layout.add_widget(self.make_box_params(xText, self.dValue[xText]))
-        
+            if len(wc)==0:
+                layout.add_widget(self.make_box_params(xText))
+            else:
+                if xText not in self.iValue.keys():
+                    if xText not in self.dValue.keys():
+                        self.dValue[xText] = ''
+                    if xText in self.decu.req4data.keys() and self.decu.req4data[xText] in self.decu.requests.keys():
+                        self.dReq[self.decu.req4data[xText]] = self.decu.requests[self.decu.req4data[xText]].ManuelSend
+                    self.iValue[xText] = ''
+                    self.iValueNeedUpdate[xText] = True
+                if xText in self.decu.datas.keys() and len(self.decu.datas[xText].List.keys()):
+                    optionList = []
+                    if xText not in self.iValue.keys():
+                        self.iValue[xText] = ''
+                        self.iValueNeedUpdate[xText] = True
+                    for i in self.decu.datas[xText].List.keys():
+                        optionList.append(
+                            hex(int(i)).replace("0x", "").upper() + ':' + self.decu.datas[xText].List[i])
+                    self.ListOption[xText] = optionList
+                    self.iValue[xText] = optionList[0]
+                else:
+                    self.iValue[xText] =('Enter here')
+                layout.add_widget(self.make_box_params(xText))
+
         if len(wc) > 0:
             slist = []
             smap = {}
@@ -1158,17 +1185,15 @@ class DDTScreen():
             smap['RequestName'] = wc
             slist.append(smap)
             self.dBtnSend[str(slist)] = slist
-
             pn = pn + 1
             yTop = 30 + pn * 40
-        
-        
+            layout.add_widget(MyButton(text="Write", size_hint=(1, None), id=xText, height=fs*3, on_release = lambda btn,key=str(slist): self.buttonPressed(btn, key)))
+        layout.add_widget(MyButton(text='CLOSE', size_hint=(1, None), height=fs*3, on_press=self.close_Screen))
         root = ScrollView(size_hint=(1, 1))
         root.add_widget(layout)
-        self.popup = Popup(title=title, title_size=int(tfSize), title_align='center', content=root, size=(Window.size[0]*0.8, Window.size[1]*0.8), size_hint=(None, None))
+        self.popup = Popup(title=xText, title_align='center', content=root, size=(Window.size[0], Window.size[1]*0.8), size_hint=(None, None))
         self.popup.open()
-        #self.decu.clearELMcache()
-        #self.update_dInputs()
-        #self.sReq_lst.append(rq)
-        #self.startScreen()
- 
+        self.decu.clearELMcache()
+        self.update_dInputs()
+        self.sReq_lst.append(rq)
+        self.startScreen()

@@ -1,4 +1,3 @@
-#!/usr/bin/env python
 # -*- coding: utf-8 -*-
 
 
@@ -97,7 +96,7 @@ class decu_request:
     self.Name  = rq.attrib["Name"]
 
     self.DossierMaintenabilite = False
-    DossierMaintenabilite = rq.findall("ns0:DossierMaintenabilite",ns) #[0]
+    DossierMaintenabilite = rq.findall("ns0:DossierMaintenabilite",ns)
     if DossierMaintenabilite: self.DossierMaintenabilite=True
 
     self.ManuelSend = False
@@ -105,7 +104,7 @@ class decu_request:
     if ManuelSend: self.ManuelSend=True
 
     self.DenyAccess = []
-    DenyAccess = rq.findall("ns0:DenyAccess",ns) #[0]
+    DenyAccess = rq.findall("ns0:DenyAccess",ns)
     if DenyAccess:
       NoSDS = DenyAccess[0].findall("ns0:NoSDS",ns)
       if NoSDS: self.DenyAccess.append('NoSDS')
@@ -123,11 +122,11 @@ class decu_request:
       if AfterSales: self.DenyAccess.append('AfterSales')
     
     
-    Sent = rq.findall("ns0:Sent",ns) #[0]
+    Sent = rq.findall("ns0:Sent",ns)
     if len(Sent):
       self.SentBytes = ""
       SentBytes = Sent[0].findall("ns0:SentBytes",ns)
-      if len(SentBytes): self.SentBytes = SentBytes[0].text #[0].text
+      if len(SentBytes): self.SentBytes = SentBytes[0].text
 
       self.VariableLength = False
       VariableLength = Sent[0].findall("ns0:VariableLength",ns)
@@ -140,7 +139,7 @@ class decu_request:
           dataitem = DataItem( di, defaultEndian )
           self.SentDI[dataitem.Name]=dataitem
           
-    Received = rq.findall("ns0:Received",ns) #[0]
+    Received = rq.findall("ns0:Received",ns)
     if len(Received):
       self.MinBytes = 0
       MinBytes = Received[0].attrib["MinBytes"]
@@ -148,11 +147,11 @@ class decu_request:
 
       self.ShiftBytesCount = 0
       ShiftBytesCount = Received[0].findall("ns0:ShiftBytesCount",ns)
-      if len(ShiftBytesCount): self.ShiftBytesCount = int(ShiftBytesCount[0].text) #[0].text)
+      if len(ShiftBytesCount): self.ShiftBytesCount = int(ShiftBytesCount[0].text)
 
       self.ReplyBytes = ""
       ReplyBytes = Received[0].findall("ns0:ReplyBytes",ns)
-      if len(ReplyBytes): self.ReplyBytes = ReplyBytes[0].text #[0].text
+      if len(ReplyBytes): self.ReplyBytes = ReplyBytes[0].text
 
       self.ReceivedDI = {}
       DataItems = Received[0].findall("ns0:DataItem",ns)
@@ -167,8 +166,7 @@ class decu_requests:
     ns = {'ns0': 'http://www-diag.renault.com/2002/ECU',
           'ns1': 'http://www-diag.renault.com/2002/screens'}
   
-    #try to find default endian
-    tmpdoc = xdoc.findall('ns0:Target/ns0:Requests', ns) #getElementsByTagName("Requests")
+    tmpdoc = xdoc.findall('ns0:Target/ns0:Requests', ns)
     defaultEndian = ''
     
     if tmpdoc and ('Endian' in tmpdoc[0].attrib.keys()):
@@ -181,5 +179,4 @@ class decu_requests:
       for rq in requests:
         request = decu_request( rq, defaultEndian )
         requiest_list[request.Name] = request
-        #print request
         

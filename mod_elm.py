@@ -362,8 +362,6 @@ class Port:
                 self.hdr = serial.Serial(self.portName, baudrate=speed, timeout=portTimeout)
             except:
                 iterator = sorted(list(list_ports.comports()))
-                #mod_globals.opt_demo = True
-                print 'opt_demo = True'
                 exit(2)
 
             if mod_globals.opt_speed == 38400 and mod_globals.opt_rate != mod_globals.opt_speed:
@@ -403,8 +401,6 @@ class Port:
             elif self.hdr.inWaiting():
                 byte = self.hdr.read()
         except:
-            #mod_globals.opt_demo = True
-            print 'opt_demo = True'
             exit(2)
 
         return byte
@@ -424,8 +420,6 @@ class Port:
                 return len(data)
             return self.hdr.write(data)
         except:
-            #mod_globals.opt_demo = True
-            print 'opt_demo = True'
             exit(2)
 
     def expect(self, pattern, time_out = 1):
@@ -615,6 +609,9 @@ class ELM:
     def __del__(self):
         if not mod_globals.opt_demo:
             self.port.write('atz\r')
+            self.port.atKeepAlive = 0
+            if self.run_allow_event:
+                self.run_allow_event.clear ()
 
     def clear_cache(self):
         self.rsp_cache = OrderedDict()
@@ -1407,18 +1404,12 @@ class ELM:
             isLevelAccepted = self.checkPerformaceLevel(level, dataids)
             if isLevelAccepted:
                 break
-        
-        # if self.performanceModeLevel == 3 and mod_globals.opt_obdlink:
-        #     for level in reversed(range(4,26)): #26 - 1 = 25  parameters per page
-        #         isLevelAccepted = self.checkPerformaceLevel(level, dataids)
-        #         if isLevelAccepted:
-        #             return
-    
+
     def checkPerformaceLevel(self, level, dataids):
         if len(dataids) >= level:
             paramToSend = ''
 
-            if level <= 3: # 3 dataids max can be send in single frame
+            if level <= 3:
                 frameLength = '{:02X}'.format(1 + level * 2)
                 for lvl in range(level):
                     paramToSend += dataids.keys()[lvl]
