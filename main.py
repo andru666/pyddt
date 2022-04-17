@@ -213,12 +213,10 @@ class PYDDT(App):
         label = Label(text='Not select car')
         popup = Popup(title='ERROR', content=label, size=(400, 400), size_hint=(None, None))
         if mod_globals.opt_car != 'ALL CARS':
-            
             self.stop()
             mod_globals.opt_demo = False
             mod_globals.opt_scan = True
             Clock.schedule_once(mod_ddt.DDTLauncher(mod_globals.opt_car).run(), 1)
-            
         else:
             popup.open()
             return
@@ -229,13 +227,25 @@ class PYDDT(App):
             mod_globals.open_demo = True
         label = Label(text='Not select car or savedCAR')
         popup = Popup(title='ERROR', content=label, size=(400, 400), size_hint=(None, None))
-        if mod_globals.opt_car != 'ALL CARS' or (mod_globals.savedCAR != 'Select'):
+        if mod_globals.opt_car != 'ALL CARS' or mod_globals.savedCAR != 'Select':
             instance.background_color= (0,1,0,1)
             self.stop()
-            try:
-                Clock.schedule_once(mod_ddt.DDTLauncher(mod_globals.opt_car).run(), 1)
-            except:
-                pass
+            if mod_globals.open_demo:
+                lbltxt = Label(text='Loading in DEMO', font_size=20)
+            elif mod_globals.savedCAR != 'Select':
+                lbltxt = Label(text='Loading savedCAR', font_size=20)
+            else:
+                lbltxt = Label(text='Scanning', font_size=20)
+            popup_init = Popup(title='Loading', content=lbltxt, size_hint=(1, 1))
+            base.runTouchApp(slave=True)
+            popup_init.open()
+            base.EventLoop.idle()
+            sys.stdout.flush()
+            base.EventLoop.window.remove_widget(popup_init)
+            popup_init.dismiss()
+            base.stopTouchApp()
+            base.EventLoop.window.canvas.clear()
+            mod_ddt.DDTLauncher(mod_globals.opt_car).run()
         else:
             popup.open()
             return

@@ -238,7 +238,10 @@ class DDTScreen():
 
     def open_Screen(self):
         if self.start:
-            if len(self.dValue) > 20: self.up_t = 1
+            if len(self.dValue) > 20:
+                self.up_t = 1
+            else:
+                self.up_t = 0.02
             self.jid = Clock.schedule_once(self.updateScreen, self.up_t)
             self.decu.rotaryRunAlloved.set()
         self.startStopButton = MyButton(text='STOP', size_hint=(1, 1))
@@ -362,7 +365,10 @@ class DDTScreen():
                             self.iValueNeedUpdate[d] = False
         self.update_dInputs()
         if self.start:
-            if len(self.dValue) > 20: self.up_t = 1
+            if len(self.dValue) > 20:
+                self.up_t = 1
+            else:
+                self.up_t = 0.02
             self.jid = Clock.schedule_once(self.updateScreen, self.up_t)
             self.decu.rotaryRunAlloved.set()
 
@@ -427,7 +433,10 @@ class DDTScreen():
             (req,rsp) = self.decu.rotaryResultsQueue.get_nowait()
             self.updateScreenValues(req,rsp)
         if self.start:
-            if len(self.dValue) > 20: self.up_t = 1
+            if len(self.dValue) > 20:
+                self.up_t = 1
+            else:
+                self.up_t = 0.02
             self.jid = Clock.schedule_once(self.updateScreen, self.up_t)
         tb = time.time()
         self.tl = tb
@@ -655,7 +664,10 @@ class DDTScreen():
             self.start = True
             self.startStopButton.text = 'STOP'
             self.decu.rotaryRunAlloved.set()
-            if len(self.dValue) > 20: self.up_t = 1
+            if len(self.dValue) > 20:
+                self.up_t = 1
+            else:
+                self.up_t = 0.02
             self.jid = Clock.schedule_once(self.updateScreen, self.up_t)
 
     def initUI(self):
@@ -1103,7 +1115,10 @@ class DDTScreen():
 
     def loadSyntheticScreen(self, rq):
         if self.start:
-            if len(self.dValue) > 20: self.up_t = 1
+            if len(self.dValue) > 20:
+                self.up_t = 1
+            else:
+                self.up_t = 0.02
             self.jid = Clock.schedule_once(self.updateScreen, self.up_t)
             self.decu.rotaryRunAlloved.set()
         read_cmd = self.decu.requests[rq].SentBytes

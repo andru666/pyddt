@@ -130,7 +130,7 @@ class DDT():
 
         if mod_globals.opt_demo:
             lbltxt = Label(text='Loading dump', font_size=20)
-            popup_init = Popup(title='Initializing', content=lbltxt, size=(400, 400), size_hint=(None, None))
+            popup_init = Popup(title='Initializing', content=lbltxt, size_hint=(1, 1))
             base.runTouchApp(slave=True)
             popup_init.open()
             EventLoop.idle()
@@ -143,7 +143,7 @@ class DDT():
 
         elif mod_globals.opt_dump or not dumpIs:
             lbltxt = Label(text='Save dump', font_size=20)
-            popup_init = Popup(title='Initializing', content=lbltxt, size=(400, 400), size_hint=(None, None))
+            popup_init = Popup(title='Initializing', content=lbltxt, size_hint=(1, 1))
             base.runTouchApp(slave=True)
             popup_init.open()
             EventLoop.idle()
@@ -313,11 +313,20 @@ class DDTLauncher(App):
         if ecu==None or ecu['xml']=='':
             self.MyPopup(content='Selected ECU is undefined. Please scan it first.')
             return None
-        Clock.schedule_once(lambda args:self.OpenECUScreens(ecu), 1)
+        lbltxt = Label(text='Open Screens', font_size=20)
+        popup_init = Popup(title='Loading', content=lbltxt, size_hint=(1, 1))
+        popup_init.open()
+        base.EventLoop.idle()
+        popup_init.dismiss()
+        self.OpenECUScreens(ecu)
         return
 
     def popup_xml(self, idds, inst):
-        time.sleep(1)
+        lbltxt = Label(text='SCANNING XML FILE', font_size=20)
+        popup_init = Popup(title='Loading', content=lbltxt, size_hint=(1, 1))
+        popup_init.open()
+        base.EventLoop.idle()
+        sys.stdout.flush()
         self.dv_addr = inst
         self.getXmlListByProj()
         layout = GridLayout(cols=1, spacing=5, size_hint=(1, None))
@@ -329,11 +338,17 @@ class DDTLauncher(App):
         layout.add_widget(btn_close)
         root = ScrollView(size_hint=(1, 1))
         root.add_widget(layout)
+        popup_init.dismiss()
         self.popup = Popup(title='Select xml ECU', content=root, size_hint=(None, None), size=(Window.size[0], Window.size[1]*0.9))
         self.popup.open()        
         btn_close.bind(on_press=self.popup.dismiss)
 
     def popup_dump(self, bt):
+        lbltxt = Label(text='SCANNING DUMP FILE', font_size=20)
+        popup_init = Popup(title='Loading', content=lbltxt, size_hint=(1, 1))
+        popup_init.open()
+        base.EventLoop.idle()
+        sys.stdout.flush()
         bt.background_color= (0,1,0,1)
         id = bt.id
         layout = GridLayout(cols=1, spacing=5, size_hint=(1, None))
@@ -343,6 +358,7 @@ class DDTLauncher(App):
             layout.add_widget(btn)
         root = ScrollView(size_hint=(1, 1))
         root.add_widget(layout)
+        popup_init.dismiss()
         self.popup = Popup(title='Select dump', content=root, size_hint=(None, None), size=(Window.size[0], Window.size[1]*0.7))
         self.popup.open()
  
@@ -419,7 +435,6 @@ class DDTLauncher(App):
         else:
             pro = 'KWP'
         ct1 = time.time()
-        
         if pro == 'CAN':
             self.elm.init_can()
         else:
