@@ -196,8 +196,8 @@ class PYDDT(App):
         if self.archive == '.' or self.archive == '..': self.archive = 'NOT BASE DDT2000'
         layout.add_widget(MyLabel(text='DB archive : ' + self.archive, font_size=(fs*0.9,  'dp'), multiline=True, size_hint=(1, None)))
         layout.add_widget(Button(text= 'Scan ALL ECUs', id='scan', size_hint=(1, None), on_press=self.scanALLecus, height=(fs * 4,  'dp')))
-        self.open_demo = Button(text= 'Open ECUs DEMO', id='demo', size_hint=(1, None), on_press=lambda bt:self.OpenEcu(bt), height=(fs * 4,  'dp'))
-        layout.add_widget(self.open_demo)
+        self.but_demo = Button(text= 'Open ECUs DEMO', id='demo', size_hint=(1, None), on_press=lambda bt:self.OpenEcu(bt), height=(fs * 4,  'dp'))
+        layout.add_widget(self.but_demo)
         layout.add_widget(self.make_savedEcus())
         layout.add_widget(self.in_car())
         layout.add_widget(self.make_bt_device_entry())
@@ -224,8 +224,9 @@ class PYDDT(App):
             return
     
     def OpenEcu(self, instance):
-        if instance.id == 'demo': mod_globals.open_demo = True
         self.finish(instance.id)
+        if instance.id == 'demo': 
+            mod_globals.open_demo = True
         label = Label(text='Not select car or savedCAR')
         popup = Popup(title='ERROR', content=label, size=(400, 400), size_hint=(None, None))
         if mod_globals.opt_car != 'ALL CARS' or (mod_globals.savedCAR != 'Select'):

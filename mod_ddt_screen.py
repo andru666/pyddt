@@ -151,7 +151,7 @@ class DDTScreen():
         self.screens = {}
         self.catnames = []
         self.scf = 8
-        
+        self.up_t = 0.02
         self.blue_part_size = 0.75
         self.scrnames = []
         self.iLabels = {}
@@ -178,7 +178,6 @@ class DDTScreen():
             self.button = MyButton(text=x, id=x, on_press=self.OnScreenChange, size_hint=(1, None), height=fs*4)
             self.boxs.add_widget(self.button)
         self.boxs.add_widget(Button(text='EXIT', size_hint=(1, None), on_press=self.exit))
-        
         root = ScrollView(size_hint=(1, 1))
         root.add_widget(self.boxs)
         self.popup_select_screen = Popup(title=self.xmlName, title_align='center', content=root, size=(Window.size[0], Window.size[1]), size_hint=(None, None))
@@ -239,10 +238,8 @@ class DDTScreen():
 
     def open_Screen(self):
         if self.start:
-            if len(self.iValue) > 20:
-                self.jid = Clock.schedule_once(self.updateScreen, 1)
-            else:
-                self.jid = Clock.schedule_once(self.updateScreen, 0.2)
+            if len(self.dValue) > 20: self.up_t = 1
+            self.jid = Clock.schedule_once(self.updateScreen, self.up_t)
             self.decu.rotaryRunAlloved.set()
         self.startStopButton = MyButton(text='STOP', size_hint=(1, 1))
         self.winfo_width, self.winfo_height = self.size_screen
@@ -365,10 +362,8 @@ class DDTScreen():
                             self.iValueNeedUpdate[d] = False
         self.update_dInputs()
         if self.start:
-            if len(self.iValue) > 20:
-                self.jid = Clock.schedule_once(self.updateScreen, 1)
-            else:
-                self.jid = Clock.schedule_once(self.updateScreen, 0.2)
+            if len(self.dValue) > 20: self.up_t = 1
+            self.jid = Clock.schedule_once(self.updateScreen, self.up_t)
             self.decu.rotaryRunAlloved.set()
 
     def buttonPressed(self, btn, key):
@@ -427,19 +422,17 @@ class DDTScreen():
                 self.decu.putToRotary(req)
         tb = time.time()
         while not self.decu.rotaryResultsQueue.empty():
-            if time.time()-tb > 0.1:
+            if time.time()-tb > 0.2:
                 break
             (req,rsp) = self.decu.rotaryResultsQueue.get_nowait()
             self.updateScreenValues(req,rsp)
-        if len(self.iValue) > 20:
-            self.jid = Clock.schedule_once(self.updateScreen, 1)
-        else:
-            self.jid = Clock.schedule_once(self.updateScreen, 0.2)
+        if self.start:
+            if len(self.dValue) > 20: self.up_t = 1
+            self.jid = Clock.schedule_once(self.updateScreen, self.up_t)
         tb = time.time()
         self.tl = tb
 
     def updateScreenValues(self, req, rsp ):
-
         if req is None or rsp is None:
             return
         request_list = []
@@ -460,32 +453,50 @@ class DDTScreen():
             val = self.decu.getValue(d)
             if d in self.dValue.keys():
                 if ':' in val:
-                    self.dLabels[d].text=(val.split(':')[1])
+                    try:
+                        self.dLabels[d].text=(val.split(':')[1])
+                    except:
+                        self.Labels[d].text=(val.split(':')[1])
                 else:
-                    self.dLabels[d].text=(val)
+                    try:
+                        self.dLabels[d].text=(val)
+                    except:
+                        self.Labels[d].text=(val)
             if d in self.iValue.keys() and self.iValueNeedUpdate[d]:
                 if self.prefer_ECU:
                     if len(self.decu.datas[d].List) or self.decu.datas[d].BytesASCII or self.decu.datas[d].Scaled:
-                        self.iLabels[d].text =(val)
+                        try:
+                            self.iLabels[d].text = val
+                        except:
+                            self.Labels[d].text = val
                     else:
                         val = self.decu.getHex(d)
                         if val!=mod_globals.none_val:
                             val = '0x' + val
-                        self.iLabels[d].text =(val)
+                        try:
+                            self.iLabels[d].text = val
+                        except:
+                            self.Labels[d].text = val
                 else:
                     cmd = self.decu.cmd4data[d]
                     val = self.decu.getValue(d, request=self.decu.requests[cmd],
                                              responce=self.decu.requests[cmd].SentBytes)
                     if len(self.decu.datas[d].List) or self.decu.datas[d].BytesASCII or self.decu.datas[d].Scaled:
-                        self.iLabels[d].text =(val)
+                        try:
+                            self.iLabels[d].text = val
+                        except:
+                            self.Labels[d].text = val
                     else:
                         val = self.decu.getHex(d, request=self.decu.requests[cmd],
                                                responce=self.decu.requests[cmd].SentBytes)
                         if val!=mod_globals.none_val:
                             val = '0x' + val
-                        self.iLabels[d].text =(val)
+                        try:
+                            self.iLabels[d].text = val
+                        except:
+                            self.Labels[d].text = val
                 self.iValueNeedUpdate[d] = False
-        
+
     def update_dInputs(self):
         for i in self.iValueNeedUpdate.keys():
             self.iValueNeedUpdate[i] = True
@@ -528,7 +539,7 @@ class DDTScreen():
         self.confirm_popup.open()
 
     def exit(self, td):
-        self.start = False
+        
         del(self.decu)
         self.popup_select_screen.dismiss()
         if self.decu is not None:
@@ -644,10 +655,8 @@ class DDTScreen():
             self.start = True
             self.startStopButton.text = 'STOP'
             self.decu.rotaryRunAlloved.set()
-            if len(self.iValue) > 20:
-                self.jid = Clock.schedule_once(self.updateScreen, 1)
-            else:
-                self.jid = Clock.schedule_once(self.updateScreen, 0.2)
+            if len(self.dValue) > 20: self.up_t = 1
+            self.jid = Clock.schedule_once(self.updateScreen, self.up_t)
 
     def initUI(self):
         screenTitle = self.xmlName
@@ -1094,10 +1103,8 @@ class DDTScreen():
 
     def loadSyntheticScreen(self, rq):
         if self.start:
-            if len(self.iValue) > 20:
-                self.jid = Clock.schedule_once(self.updateScreen, 1)
-            else:
-                self.jid = Clock.schedule_once(self.updateScreen, 0.2)
+            if len(self.dValue) > 20: self.up_t = 1
+            self.jid = Clock.schedule_once(self.updateScreen, self.up_t)
             self.decu.rotaryRunAlloved.set()
         read_cmd = self.decu.requests[rq].SentBytes
         if read_cmd[:2]=='21':
