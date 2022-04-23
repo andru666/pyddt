@@ -67,7 +67,7 @@ class MyLabel(Label):
         if 'valign' not in kwargs:
             self.valign = 'middle'
         if 'height' not in kwargs:
-            self.height = self.size[1]*1.1
+            self.height = self.size[1]
         if 'size' in kwargs:
             self.size[0] = self.size[0]+4
         if 'pos' in kwargs:
@@ -76,12 +76,12 @@ class MyLabel(Label):
         if not self.canvas:
             return
         self.canvas.before.clear()
-        with self.canvas.before:
+        '''with self.canvas.before:
             Color(0, 0, 0, 1)
-            Rectangle(pos=(self.pos[0]-4, self.pos[1]), size=(self.size[0], self.size[1]*1.1))
+            Rectangle(pos=(self.pos[0]-4, self.pos[1]), size=(self.size[0], self.size[1]*1.1))'''
         with self.canvas.before:
             Color(self.bgcolor[0], self.bgcolor[1], self.bgcolor[2], self.bgcolor[3])
-            Rectangle(pos=(self.pos[0], self.pos[1]+4), size=(self.size[0]-8,self.size[1]*1.1-8))
+            Rectangle(pos=(self.pos[0], self.pos[1]), size=(self.size[0],self.size[1]))
             
 class MyLabelBlue(Label):
     def on_size(self, *args):
@@ -131,7 +131,6 @@ class DDTScreen():
     dBtnSend = {}
     dFrames = []
     dObj = []
-    tObj = {}
     start = True
     jid = None
     firstResize = False
@@ -141,8 +140,6 @@ class DDTScreen():
     
     currentscreen = None
     
-    scf = 1.0
-    
     def __init__(self, ddtFileName, xdoc, decu, top = False):
         global fs
         fs = mod_globals.fontSize
@@ -150,7 +147,7 @@ class DDTScreen():
         self.Screens = {}
         self.screens = {}
         self.catnames = []
-        self.scf = 8
+        self.scf = 5
         self.up_t = 0.02
         self.blue_part_size = 0.75
         self.scrnames = []
@@ -186,12 +183,6 @@ class DDTScreen():
     def close_EXIT(self, dt):
         self.popup_select_screen.dismiss()
         self.exit()
-
-    def show_box(self):
-        glay = BoxLayout(orientation='vertical', size_hint=(1, None), height=fs * 2.0)
-        label2 = MyLabelBlue(text='val', halign='right', valign='top', size_hint=(1 - self.blue_part_size, 1), font_size=fs)
-        glay.add_widget(label2)
-        return glay
 
     def close_Screen(self, dt):
         self.popup_select_screen.open()
@@ -236,80 +227,6 @@ class DDTScreen():
         self.Labels[i].text = bt
         self.triggers[i].text = bt
 
-    def open_Screen(self):
-        if self.start:
-            if len(self.dValue) > 20:
-                self.up_t = 1
-            else:
-                self.up_t = 0.02
-            self.jid = Clock.schedule_once(self.updateScreen, self.up_t)
-            self.decu.rotaryRunAlloved.set()
-        self.startStopButton = MyButton(text='STOP', size_hint=(1, 1))
-        self.winfo_width, self.winfo_height = self.size_screen
-        layout = GridLayout(cols=1, padding=10, spacing=10, size_hint=(None, None), size=(Window.size[0], Window.size[1]*0.9))
-        layout3 = GridLayout(cols=1, size_hint=(1, None))
-        box = GridLayout(cols=2, size_hint=(1, None), height=fs*3)
-        box.add_widget(self.startStopButton)
-        self.startStopButton.bind(on_release=lambda args:self.startStop())
-        box.add_widget(MyButton(text='CLOSE', size_hint=(1, 1), on_press=self.close_Screen))
-        layout.add_widget(box)
-        
-        self.dropdowns = {}
-        self.triggers = {}
-        flayout = MyScatterLayout(size_hint=(None, None), bgcolor=self.scr_c, size=(self.winfo_width, self.winfo_height), do_rotation=False )
-        if self.ddt_label:
-            for i in self.ddt_label:
-                if i == 'New label': continue
-                label = MyLabel(text=i, id=i, color=self.LddtColor[i]['xfcolor'], bold=self.ddt_fontL[i]['bold'], italic=self.ddt_fontL[i]['italic'], font_size=int(self.ddt_fontL[i]['size']), valign=self.ddt_fontL[i]['anchor'], bgcolor=self.LddtColor[i]['xcolor'], size_hint=(None, None), size=(self.ddt_label[i]['width'], self.ddt_label[i]['height']/1.1), pos=(self.ddt_label[i]['left'], self.winfo_height-self.ddt_label[i]['top']))
-                flayout.add_widget(label)
-        if self.ddt_inputs:
-            for i in self.ddt_inputs:
-                if self.ddt_inputs[i]['xw'] > 40:
-                    label = MyLabel(text=i, id=i, valign=self.ddt_fontI[i]['anchor'], color=self.IddtColor[i]['xfcolor'], bold=self.ddt_fontI[i]['bold'], italic=self.ddt_fontI[i]['italic'], halign='left', font_size=int(self.ddt_fontI[i]['size']), bgcolor=self.IddtColor[i]['xcolor'], size_hint=(None, None), size=(self.ddt_inputs[i]['width'], self.ddt_inputs[i]['height']/1.1), pos=(self.ddt_inputs[i]['left'], self.winfo_height-self.ddt_inputs[i]['top']))
-                    flayout.add_widget(label)
-                if i in self.ListOption.keys():
-                    self.dropdowns[i] = DropDown()
-                    for o in self.ListOption[i]:
-                        btn = Button(text=o, id=o, font_size=int(self.ddt_fontI[i]['size']), size_hint_y=None, height=self.ddt_inputs[i]['height'])
-                        btn.bind(on_release=lambda btn=btn, i=i: self.select_option(btn.text, i))
-                        self.dropdowns[i].add_widget(btn)
-                    self.triggers[i] = Button(text=self.ListOption[i][0], id=i, size_hint=(None, None), font_size=int(self.ddt_fontI[i]['size']), size=(self.ddt_inputs[i]['widthV'], self.ddt_inputs[i]['height']), pos=(self.ddt_inputs[i]['leftV'], self.winfo_height-self.ddt_inputs[i]['top']))
-                    self.triggers[i].bind(on_release=self.dropdowns[i].open)
-                    self.Labels[i] = self.triggers[i]
-                    if i not in self.iValue.keys():
-                        self.iValue[i] = ''
-                    self.dropdowns[i].bind(on_select=lambda instance, x: setattr(self.triggers[i], 'text', x))
-                    flayout.add_widget(self.triggers[i])
-                elif self.iValue[i] == 'Enter here':
-                    label_IT = TextInput(text=self.iValue[i], valign=self.ddt_fontI[i]['anchor'], color=self.IddtColor[i]['xfcolor'], bgcolor=(0, 1, 0, 1), bold=self.ddt_fontI[i]['bold'], italic=self.ddt_fontI[i]['italic'], font_size=int(self.ddt_fontI[i]['size']), size_hint=(None, None), size=(self.ddt_inputs[i]['widthV'], self.ddt_inputs[i]['height']), pos=(self.ddt_inputs[i]['leftV'], self.winfo_height-self.ddt_inputs[i]['top']))
-                    self.iLabels[i] = label_IT
-                    flayout.add_widget(label_IT)
-                else:
-                    label_I = MyLabel(text=self.iValue[i], valign=self.ddt_fontI[i]['anchor'], color=self.IddtColor[i]['xfcolor'], bgcolor=(0, 1, 0, 1), bold=self.ddt_fontI[i]['bold'], italic=self.ddt_fontI[i]['italic'], font_size=int(self.ddt_fontI[i]['size']), size_hint=(None, None), size=(self.ddt_inputs[i]['widthV'], self.ddt_inputs[i]['height']), pos=(self.ddt_inputs[i]['leftV'], self.winfo_height-self.ddt_inputs[i]['top']))
-                    self.iLabels[i] = label_I
-                    flayout.add_widget(label_I)
-                self.needupdate = True
-
-        if self.ddt_button:
-            for i in self.ddt_button:
-                button = Button(text=self.ddt_button[i]['name'], valign=self.ddt_fontB[i]['anchor'], id=i, color=self.BddtColor[i]['xfcolor'], bold=self.ddt_fontB[i]['bold'], italic=self.ddt_fontB[i]['italic'], font_size=int(self.ddt_fontB[i]['size']), size_hint=(None, None), size=(self.ddt_button[i]['width'], self.ddt_button[i]['height']), pos=(self.ddt_button[i]['left'], self.winfo_height-self.ddt_button[i]['top']))
-                button.bind(on_release = lambda btn=self.ddt_button[i]['name'], key=i: self.buttonPressed(btn.text, btn.id))
-                flayout.add_widget(button)
-
-        if self.ddt_dispalys:
-            for i in self.ddt_dispalys:
-                if self.ddt_dispalys[i]['xw'] > 40:
-                    label = MyLabel(text=i, id=i, valign=self.ddt_fontD[i]['anchor'], color=self.DddtColor[i]['xfcolor'], bold=self.ddt_fontD[i]['bold'], italic=self.ddt_fontD[i]['italic'], font_size=int(self.ddt_fontD[i]['size']), halign='left', bgcolor=self.DddtColor[i]['xcolor'], size_hint=(None, None), size=(self.ddt_dispalys[i]['width'], self.ddt_dispalys[i]['height']), pos=(self.ddt_dispalys[i]['left'], self.winfo_height-self.ddt_dispalys[i]['top']))
-                    flayout.add_widget(label)
-                label_D = MyLabel(text=self.dValue[i], valign=self.ddt_fontD[i]['anchor'], bgcolor=(0, 1, 0, 1), color=self.DddtColor[i]['xfcolor'], bold=self.ddt_fontD[i]['bold'], italic=self.ddt_fontD[i]['italic'], font_size=int(self.ddt_fontD[i]['size']), size_hint=(None, None), size=(self.ddt_dispalys[i]['widthV'], self.ddt_dispalys[i]['height']), pos=(self.ddt_dispalys[i]['leftV'], self.winfo_height-self.ddt_dispalys[i]['top']))
-                self.dLabels[i] = label_D
-                flayout.add_widget(label_D)
-                self.needupdate = True
-        layout3.add_widget(flayout)
-        layout.add_widget(layout3)
-        self.popup = Popup(title=self.xmlName, content=layout, size=(Window.size[0], Window.size[1]), size_hint=(None, None))
-        self.popup.open()
-
     def chang_zoom(self, dt):
         self.popup.dismiss()
         self.scf = self.scf + dt
@@ -329,7 +246,7 @@ class DDTScreen():
         layout.add_widget(box2)
         root = ScrollView(size_hint=(1, 1), size=(Window.width, Window.height))
         root.add_widget(layout)
-        self.popup_confirm = Popup(title='Please confirm', content=root, size=(Window.size[0]*0.8, Window.size[1]*0.8), size_hint=(None, None))
+        self.popup_confirm = Popup(title='Please confirm', content=root, size=(Window.size[0], Window.size[1]), size_hint=(None, None))
         self.popup_confirm.open()
         button1.bind(on_release=lambda args:self.yes(data))
         button2.bind(on_release=self.no)
@@ -365,10 +282,7 @@ class DDTScreen():
                             self.iValueNeedUpdate[d] = False
         self.update_dInputs()
         if self.start:
-            if len(self.dValue) > 20:
-                self.up_t = 1
-            else:
-                self.up_t = 0.02
+            self.up_t = 0.02
             self.jid = Clock.schedule_once(self.updateScreen, self.up_t)
             self.decu.rotaryRunAlloved.set()
 
@@ -434,7 +348,7 @@ class DDTScreen():
             self.updateScreenValues(req,rsp)
         if self.start:
             if len(self.dValue) > 20:
-                self.up_t = 1
+                self.up_t = 0.2
             else:
                 self.up_t = 0.02
             self.jid = Clock.schedule_once(self.updateScreen, self.up_t)
@@ -515,16 +429,21 @@ class DDTScreen():
         self.box = GridLayout(cols=1, padding=10, spacing=10, size_hint=(1.0, None))
         self.box.bind(minimum_height=self.box.setter('height'))
         for a in self.screens[item.id]:
-            self.button = Button(text=a, id=a, on_press=lambda bt:self.loadScreen(bt.id), size_hint=(1, None), height=fs*4)
+            self.button = Button(text=a, id=a, on_press=lambda bt:self.ChangeScreen(bt.id), size_hint=(1, None), height=fs*4)
             self.box.add_widget(self.button)
         self.box.add_widget(Button(text='CLOSE', size_hint=(1, None), font_size=fs, on_press=self.close_OnScreenChange))
         root = ScrollView(size_hint=(1, 1))
         root.add_widget(self.box)
-        self.popup_screen = Popup(title=item.id, title_align='center', content=root, size=(Window.size[0]*0.9, Window.size[1]*0.9), size_hint=(None, None))
+        self.popup_screen = Popup(title=item.id, title_align='center', content=root, size=(Window.size[0], Window.size[1]), size_hint=(None, None))
         self.popup_screen.open()
-
+    
+    def ChangeScreen(self, i):
+        self.start = True
+        self.loadScreen(i)
+    
     def close_OnScreenChange(self, dt):
         self.popup_screen.dismiss()
+        self.popup_select_screen.open()
 
     def no(self, instance):
         self.popup_confirm.dismiss()
@@ -544,7 +463,7 @@ class DDTScreen():
         box.add_widget(b)
         root = ScrollView(size_hint=(1, 1))
         root.add_widget(box)
-        self.confirm_popup = Popup(title=title, content=root, size_hint=(None, None), size=(Window.size[0], Window.size[1]*0.6))
+        self.confirm_popup = Popup(title=title, content=root, size_hint=(None, None), size=(Window.size[0], Window.size[1]))
         self.confirm_popup.open()
 
     def exit(self, td):
@@ -619,10 +538,6 @@ class DDTScreen():
         except:
             pass
         try:
-            if self.tObj is not None: del(self.tObj)
-        except:
-            pass
-        try:
             if self.images is not None: del(self.images)
         except:
             pass
@@ -632,15 +547,15 @@ class DDTScreen():
         if hex_string == '0': return 0.0, 0.0, 0.0, 1.0
         while len(hex_string)<6: hex_string = '0'+hex_string
         try:
-            r_hex = int(hex_string[0:2], 16)/255.0
+            r_hex = round(int(hex_string[0:2], 16)/255.0, 2)
         except:
             r_hex = 0
         try:
-            g_hex = int(hex_string[2:4], 16)/255.0
+            g_hex = round(int(hex_string[2:4], 16)/255.0, 2)
         except:
             g_hex = 0
         try:
-            b_hex = int(hex_string[4:6], 16)/255.0
+            b_hex = round(int(hex_string[4:6], 16)/255.0, 2)
         except:
             b_hex = 0
         return r_hex, g_hex, b_hex, 1.0
@@ -664,10 +579,7 @@ class DDTScreen():
             self.start = True
             self.startStopButton.text = 'STOP'
             self.decu.rotaryRunAlloved.set()
-            if len(self.dValue) > 20:
-                self.up_t = 1
-            else:
-                self.up_t = 0.02
+            self.up_t = 0.02
             self.jid = Clock.schedule_once(self.updateScreen, self.up_t)
 
     def initUI(self):
@@ -738,6 +650,17 @@ class DDTScreen():
                 continue
             self.decu.putToRotary(req)
 
+    def drop(self, i, optionList, f, H, W):
+        self.dropdowns[i] = DropDown()
+        W = W*self.flayout.scale
+        if W*self.flayout.scale > Window.size[0]: W = Window.size[0]
+        for o in optionList:
+            btn = Button(text=o, id=o, font_size=int(f)*self.flayout.scale, size_hint=(None,None), size=(W,H * self.flayout.scale))
+            btn.bind(on_release=lambda btn = btn, i = i: self.select_option(btn.text, i))
+            self.dropdowns[i].add_widget(btn)
+        self.dropdowns[i].bind(on_select=lambda instance, x: setattr(self.triggers[i], 'text', x))
+        self.dropdowns[i].open(self.triggers[i])
+
     def loadScreen(self, scr):
         self.popup_screen.dismiss()
         ns = mod_globals.ns
@@ -752,25 +675,12 @@ class DDTScreen():
         scr_w = int(scr.attrib["Width"])
         scr_h = int(scr.attrib["Height"])
         self.scr_c = self.hex_to_rgb(int(scr.attrib["Color"]))
+        if scr_w *2 <= Window.size[0]: self.scf = 1
         self.winfo_height = self.winfo_height * self.scf
         self.winfo_width = self.winfo_width * self.scf
         bg_color = scr.attrib["Color"]
-        scx = 1*self.scf
-        scy = 1*self.scf
-        max_x = 0.0
-        max_y = 0.0
-        recs = scr.findall("*/ns1:Rectangle", ns)
-        for rec in recs:
-            xrLeft = int(rec.attrib["Left"])
-            xrTop = int(rec.attrib["Top"])
-            xrHeight = int(rec.attrib["Height"])
-            xrWidth = int(rec.attrib["Width"])
-            w = xrLeft + xrWidth
-            h = xrTop + xrHeight
-            if w > max_x and w < scr_w * 3:
-                max_x = w
-            if h > max_y and h < scr_h * 3:
-                max_y = h
+        scx = self.scf
+        scy = self.scf
 
         self.dValue = {}
         self.iValue = {}
@@ -780,35 +690,33 @@ class DDTScreen():
         self.sReq_lst = []
         self.dDisplay = {}
         self.dObj = []
-        self.tObj = {}
         self.dFrames = []
         self.images = []
-        self.ListOption = {}
-
-        self.ddt_fontL = {}
-        self.ddt_fontD = {}
-        self.ddt_fontI = {}
-        self.ddt_fontB = {}
-        self.ddt_label = {}
-        self.ddt_dispalys = {}
-        self.ddt_dispalys_val = {}
-        self.ddt_button = {}
-        self.ddt_inputs = {}
-
-        self.BddtColor = {}
-        self.DddtColor = {}
-        self.LddtColor = {}
-        self.IddtColor = {}
 
         _minInputHeight = int(self.minInputHeight(scr)) / 25
         _minButtonHeight = int(self.minButtonHeight(scr)) / 25
         h = 0
         w = 0
-
+        self.dropdowns = {}
+        self.triggers = {}
         if _minInputHeight == 0: _minInputHeight = 10
         if _minButtonHeight == 0: _minButtonHeight = 20
-        self.size_screen = (max_x / scx, max_y / scy)
+        self.size_screen = (scr_w / scx, scr_h / scy)
 
+        if self.start:
+            self.up_t = 0.02
+            self.jid = Clock.schedule_once(self.updateScreen, self.up_t)
+            self.decu.rotaryRunAlloved.set()
+        self.winfo_width, self.winfo_height = self.size_screen
+        self.flayout = MyScatterLayout(size_hint=(None, None), bgcolor=self.scr_c, size=(self.winfo_width, self.winfo_height), do_rotation=False )
+        self.startStopButton = MyButton(text='STOP', size_hint=(1, 1))
+        layout = GridLayout(cols=1, padding=10, spacing=10, size_hint=(None, None), size=(Window.size[0], Window.size[1]*0.9))
+        layout3 = GridLayout(cols=1, size_hint=(1, None))
+        box = GridLayout(cols=2, size_hint=(1, None), height=fs*3)
+        box.add_widget(self.startStopButton)
+        self.startStopButton.bind(on_release=lambda args:self.startStop())
+        box.add_widget(MyButton(text='CLOSE', size_hint=(1, 1), on_press=self.close_Screen))
+        layout.add_widget(box)
         labels = scr.findall("ns1:Label", ns)
         if len(labels):
             slab = []
@@ -846,14 +754,15 @@ class DDTScreen():
                     xfBold = xFont.attrib["Bold"]
                     xfItalic = xFont.attrib["Italic"]
                     xfColor = xFont.attrib["Color"]
-                self.ddt_label[xText] = dict(left=xrLeft, top=xrHeight+xrTop, width=xrWidth, height=xrHeight)
 
                 if '::pic:' not in xText or not mod_db_manager.path_in_ddt('graphics'):
-                    self.LddtColor[xText] = dict(xcolor=self.hex_to_rgb(xColor), xfcolor=self.hex_to_rgb(xfColor))
+                    xcolor = self.hex_to_rgb(xColor)
+                    xfcolor = self.hex_to_rgb(xfColor)
                 
                 if '::pic:' in xText:
-                    self.LddtColor[xText] = dict(xcolor=self.hex_to_rgb(65535), xfcolor=self.hex_to_rgb(xfColor))
-                
+                    xcolor = self.hex_to_rgb(65535)
+                    xfcolor = self.hex_to_rgb(xfColor)
+
                 if xText == 'New label': continue
                 xfSize = str(int(float(xfSize)*15/self.scf))
                 
@@ -864,18 +773,17 @@ class DDTScreen():
                 xfItalic = True if xfItalic == '0' else False
                 
                 if xAlignment == '1':
-                    xrTop = xrTop + xrHeight / 2
                     xAlignment = 'middle'
+                    halign = 'center'
                 elif xAlignment == '2':
-                    xrLeft = xrLeft + xrWidth / 2
                     xAlignment = 'top'
+                    halign = 'center'
                 else:
-                    xAlignment = 'middle'
-                
-                self.ddt_fontL[xText] = dict(name=xfName, size=xfSize, bold=xfBold, italic=xfItalic, anchor=xAlignment)
-                
+                    xAlignment = 'top'
+                    halign = 'left'
+
                 if '::pic:' not in xText:
-                    self.ddt_fontL[xText] = dict(name=xfName, size=xfSize, bold=xfBold, italic=xfItalic, anchor=xAlignment)
+                    name = xfName
                 else:
                     gifname = xText.replace('::pic:', 'graphics/') + '.gif'
                     gifname = gifname.replace('\\', '/')
@@ -886,8 +794,7 @@ class DDTScreen():
                         y1 = self.images[-1].height()
                         self.images[-1] = self.images[-1].zoom(3, 3)
                         self.images[-1] = self.images[-1].subsample(x1 * 3 / xrWidth, y1 * 3 / xrHeight)
-                        self.ddt_label[xText] = [xrLeft, xrTop]
-
+                self.flayout.add_widget(MyLabel(text=xText, halign=halign, id=xText, color=xfcolor, bold=xfBold, italic=xfItalic, font_size=int(xfSize), valign=xAlignment, bgcolor=xcolor, size_hint=(None, None), size=(xrWidth, xrHeight), pos=(xrLeft, self.winfo_height-(xrHeight+xrTop))))
         dispalys = scr.findall("ns1:Display", ns)
         if len(dispalys):
             for dispaly in dispalys:
@@ -913,10 +820,9 @@ class DDTScreen():
                 if len(xRect):
                     xRect = xRect[0]
                     xrLeft = int(xRect.attrib["Left"]) / scx
-                    xrTop = int(xRect.attrib["Top"]) / (scy)
+                    xrTop = int(xRect.attrib["Top"]) / scy
                     xrHeight = int(xRect.attrib["Height"]) / scy
                     xrWidth = int(xRect.attrib["Width"]) / scx
-                
                 xFont = dispaly.findall("ns1:Font", ns)
                 if len(xFont):
                     xFont = xFont[0]
@@ -933,8 +839,7 @@ class DDTScreen():
                         xText = xReq
                 
                 self.dDisplay[xText] = 1
-                self.ddt_dispalys[xText] = dict(left=xrLeft, top=xrTop+xrHeight, width=xrWidth, height=xrHeight, leftV=xrLeft + xWidth, widthV=xrWidth - xWidth, xw=xWidth)
-                
+
                 xfSize = str(int(float(xfSize)*15/self.scf))
                 
                 if xrLeft < 0: xrLeft = 0
@@ -943,23 +848,31 @@ class DDTScreen():
                 xfBold = True if xfBold == '0' else False
                 xfItalic = True if xfItalic == '0' else False
                 
-                self.DddtColor[xText] = dict(xcolor=self.hex_to_rgb(xColor), xfcolor=self.hex_to_rgb(xfColor))
+                xcolor = self.hex_to_rgb(xColor)
+                xfcolor = self.hex_to_rgb(xfColor)
                 
                 if xAlignment == '1':
-                    xAlignment = 'bottom'
-                elif xAlignment == '2':
-                    xrLeft = xrLeft + xrWidth / 2
-                    xAlignment = 'top'
-                else:
                     xAlignment = 'middle'
+                    halign = 'center'
+                elif xAlignment == '2':
+                    xAlignment = 'top'
+                    halign = 'center'
+                else:
+                    xAlignment = 'top'
+                    halign = 'left'
                 
                 if xWidth > 40:
                     tText = xText
                 
-                self.ddt_fontD[xText] = dict(name=xfName, size=xfSize, bold=xfBold, italic=xfItalic, anchor=xAlignment)
                 if xText not in self.dValue.keys():
                     self.dValue[xText] = mod_globals.none_val
-
+                if xWidth > 40:
+                    label = MyLabel(text=xText, id=xText, valign=xAlignment, color=xfcolor, bold=xfBold, italic=xfItalic, font_size=int(xfSize), halign='left', bgcolor=xcolor, size_hint=(None, None), size=(xrWidth, xrHeight), pos=(xrLeft, self.winfo_height-(xrTop+xrHeight)))
+                    self.flayout.add_widget(label)
+                label_D = MyLabel(text=self.dValue[xText], valign=xAlignment, bgcolor=(0, 1, 0, 0.25), color=xfcolor, bold=xfBold, italic=xfItalic, font_size=int(xfSize), size_hint=(None, None), size=(xrWidth - xWidth, xrHeight), pos=(xrLeft + xWidth, self.winfo_height-(xrTop+xrHeight)))
+                self.dLabels[xText] = label_D
+                self.flayout.add_widget(label_D)
+                self.needupdate = True
         inputs = scr.findall("ns1:Input", ns)
         if len(inputs):
             for input in inputs:
@@ -989,29 +902,30 @@ class DDTScreen():
                     xfItalic = xFont.attrib["Italic"]
                     xfColor = xFont.attrib["Color"]
 
-                self.ddt_inputs[xText] = dict(left=xrLeft, top=xrTop+xrHeight, width=xrWidth, height=xrHeight, leftV=xrLeft + xWidth, widthV=xrWidth - xWidth, xw=xWidth)
                 xfSize = str(int(float(xfSize)*10/self.scf))
                 if xrLeft < 0: xrLeft = 0
                 if xrTop < 0: xrTop = 0
                 
-                self.IddtColor[xText] = dict(xcolor=self.hex_to_rgb(xColor), xfcolor=self.hex_to_rgb(xfColor))
+                xcolor=self.hex_to_rgb(xColor)
+                xfcolor=self.hex_to_rgb(xfColor)
                 
                 xfBold = True if xfBold == '0' else False
                 xfItalic = True if xfItalic == '0' else False
                 
                 if xAlignment == '1':
-                    xrTop = xrTop + xrHeight / 2
-                    xAlignment = 'bottom'
-                elif xAlignment == '2':
-                    xrLeft = xrLeft + xrWidth / 2
-                    xAlignment = 'top'
-                else:
                     xAlignment = 'middle'
+                    halign = 'center'
+                elif xAlignment == '2':
+                    xAlignment = 'top'
+                    halign = 'center'
+                else:
+                    xAlignment = 'top'
+                    halign = 'left'
                 
                 if xWidth > 40:
                     tText = xText
-                    self.tObj[id] = xText
-                self.ddt_fontI[xText] = dict(name=xfName, size=xfSize, bold=xfBold, italic=xfItalic, anchor=xAlignment)
+                    label = MyLabel(text=xText, id=xText, valign=xAlignment, color=xfcolor, bold=xfBold, italic=xfItalic, halign='left', font_size=int(xfSize), bgcolor=xcolor, size_hint=(None, None), size=(xrWidth, xrHeight), pos=(xrLeft, self.winfo_height-(xrTop+xrHeight)))
+                    self.flayout.add_widget(label)
                 if xText not in self.iValue.keys():
                     if xText not in self.dValue.keys():
                         self.dValue[xText] = ''
@@ -1027,10 +941,26 @@ class DDTScreen():
                     for i in self.decu.datas[xText].List.keys():
                         optionList.append(
                             hex(int(i)).replace("0x", "").upper() + ':' + self.decu.datas[xText].List[i])
-                    self.ListOption[xText] = optionList
                     self.iValue[xText] = optionList[0]
+                    
+                    self.dropdowns[xText] = DropDown()
+                    for o in optionList:
+                        btn = Button(text=o, id=o, font_size=int(xfSize)*self.flayout.scale, size_hint_y=None, height=xrHeight)
+                        btn.bind(on_release=lambda btn=btn, i=xText: self.select_option(btn.text, i))
+                        self.dropdowns[xText].add_widget(btn)
+                    self.triggers[xText] = Button(text=self.iValue[xText], id=xText, size_hint=(None, None), font_size=int(xfSize), size=(xrWidth - xWidth, xrHeight), pos=(xrLeft + xWidth, self.winfo_height-(xrTop+xrHeight)))
+                    self.triggers[xText].bind(on_release=lambda bt,L=optionList,f=xfSize,H=xrHeight,W=xrWidth - xWidth:self.drop(bt.id, L, f, H, W))
+                    self.Labels[xText] = self.triggers[xText]
+
+                    self.dropdowns[xText].bind(on_select=lambda instance, x: setattr(self.triggers[xText], 'text', x))
+                    self.flayout.add_widget(self.triggers[xText])
                 else:
                     self.iValue[xText] =('Enter here')
+                    label_IT = TextInput(text=self.iValue[xText], valign=xAlignment, color=xfcolor, bgcolor=xcolor, bold=xfBold, italic=xfItalic, font_size=int(xfSize), size_hint=(None, None), size=(xrWidth - xWidth, xrHeight), pos=(xrLeft + xWidth, self.winfo_height-(xrTop+xrHeight)))
+                    self.iLabels[xText] = label_IT
+                    self.flayout.add_widget(label_IT)
+                self.needupdate = True
+        
         buttons = scr.findall("ns1:Button", ns)
         if len(buttons):
             for button in buttons:
@@ -1045,7 +975,7 @@ class DDTScreen():
                 if "Color" in button.attrib.keys():
                     xColor = button.attrib["Color"]
                 else:
-                    xColor = '000000'
+                    xColor = '00000000'
                 xFont = button.findall("ns1:Font", ns)
                 if len(xFont):
                     xFont = xFont[0]
@@ -1056,7 +986,7 @@ class DDTScreen():
                     if "Color" in xFont.attrib.keys():
                       xfColor = xFont.attrib["Color"]
                     else:
-                      xfColor = '000000'
+                      xfColor = '16777215'
 
                 xSends = button.findall("ns1:Send", ns)
                 slist = []
@@ -1080,11 +1010,10 @@ class DDTScreen():
 
                 xfBold = True if xfBold == '0' else False
                 xfItalic = True if xfItalic == '0' else False
-                self.BddtColor[str(slist)] = dict(xcolor=self.hex_to_rgb(xColor), xfcolor=self.hex_to_rgb(xfColor))
-                
-                self.ddt_fontB[str(slist)] = dict(name=xfName, size=xfSize, bold=xfBold, italic=xfItalic, anchor='middle')
+                xcolor=self.hex_to_rgb(xColor)
+                xfcolor=self.hex_to_rgb(xfColor)
                 if '::btn:' not in xText:
-                    self.ddt_button[str(slist)] = dict(name=xText,left=xrLeft, top=xrTop+xrHeight, width=xrWidth, height=xrHeight)
+                    name=xText
                 else:
                     gifname = 'graphics/' + xText.split('|')[1] + '.gif'
                     gifname = gifname.replace('\\', '/')
@@ -1095,6 +1024,10 @@ class DDTScreen():
                         y1 = self.images[-1].height()
                         self.images[-1] = self.images[-1].zoom(3, 3)
                         self.images[-1] = self.images[-1].subsample(x1 * 3 / xrWidth + 1, y1 * 3 / xrHeight + 1)
+                button = Button(text=xText, valign='middle', id=str(slist), color=xfcolor, bold=xfBold, italic=xfItalic, font_size=int(xfSize), size_hint=(None, None), size=(xrWidth, xrHeight), pos=(xrLeft, self.winfo_height-(xrTop+xrHeight)))
+                button.bind(on_release = lambda btn=xText, key=str(slist): self.buttonPressed(btn.text, btn.id))
+                self.flayout.add_widget(button)
+
         self.decu.clearELMcache()
         self.update_dInputs()
         sends = scr.findall("ns1:Send", ns)
@@ -1110,15 +1043,14 @@ class DDTScreen():
                 self.sReq_lst.append(sRequestName)
         if len(self.sReq_lst):
             self.startScreen()
-        self.start = True
-        self.open_Screen()
-
+        layout3.add_widget(self.flayout)
+        layout.add_widget(layout3)
+        self.popup = Popup(title=self.xmlName, content=layout, size=(Window.size[0], Window.size[1]), size_hint=(None, None))
+        self.popup.open()
+        
     def loadSyntheticScreen(self, rq):
         if self.start:
-            if len(self.dValue) > 20:
-                self.up_t = 1
-            else:
-                self.up_t = 0.02
+            self.up_t = 0.02
             self.jid = Clock.schedule_once(self.updateScreen, self.up_t)
             self.decu.rotaryRunAlloved.set()
         read_cmd = self.decu.requests[rq].SentBytes
@@ -1150,7 +1082,6 @@ class DDTScreen():
         self.sReq_lst = []
         self.dDisplay = {}
         self.dObj = []
-        self.tObj = {}
         self.dFrames = []
         self.images = []
         self.ListOption = {}
@@ -1213,7 +1144,7 @@ class DDTScreen():
         layout.add_widget(MyButton(text='CLOSE', size_hint=(1, None), height=fs*3, on_press=self.close_Screen))
         root = ScrollView(size_hint=(1, 1))
         root.add_widget(layout)
-        self.popup = Popup(title=xText, title_align='center', content=root, size=(Window.size[0], Window.size[1]*0.8), size_hint=(None, None))
+        self.popup = Popup(title=xText, title_align='center', content=root, size=(Window.size[0], Window.size[1]), size_hint=(None, None))
         self.popup.open()
         self.decu.clearELMcache()
         self.update_dInputs()

@@ -7,11 +7,11 @@ from kivy.config import Config
 from kivy.utils import platform
 Config.set('kivy', 'exit_on_escape', '0')
 if platform != 'android':
-    Config.set('graphics', 'position', 'custom')
-    Config.set('graphics', 'left', 100)
-    Config.set('graphics', 'top',  50)
     import ctypes
     user32 = ctypes.windll.user32
+    Config.set('graphics', 'position', 'custom')
+    Config.set('graphics', 'left', int(user32.GetSystemMetrics(0)/2))
+    Config.set('graphics', 'top',  50)
     from kivy.core.window import Window
     Window.size = user32.GetSystemMetrics(0), user32.GetSystemMetrics(1)
 from kivy.core.window import Window
@@ -33,7 +33,6 @@ from kivy.clock import Clock
 from mod_ddt_ecu import DDTECU
 import os, sys, glob
 import mod_globals, mod_db_manager, mod_ddt_utils, mod_ddt
-
 if int(Window.size[1]) > int(Window.size[0]):
     fs = int(Window.size[1])/(int(Window.size[0])/9)
 else:
@@ -224,19 +223,19 @@ class PYDDT(App):
     def OpenEcu(self, instance):
         self.finish(instance.id)
         if instance.id == 'demo': 
-            mod_globals.open_demo = True
+            mod_globals.opt_demo = True
         label = Label(text='Not select car or savedCAR')
         popup = Popup(title='ERROR', content=label, size=(400, 400), size_hint=(None, None))
         if mod_globals.opt_car != 'ALL CARS' or mod_globals.savedCAR != 'Select':
             instance.background_color= (0,1,0,1)
             self.stop()
-            if mod_globals.open_demo:
+            if mod_globals.opt_demo:
                 lbltxt = Label(text='Loading in DEMO', font_size=20)
             elif mod_globals.savedCAR != 'Select':
                 lbltxt = Label(text='Loading savedCAR', font_size=20)
             else:
                 lbltxt = Label(text='Scanning', font_size=20)
-            popup_init = Popup(title='Loading', content=lbltxt, size_hint=(1, 1))
+            popup_init = Popup(title='Loading', content=lbltxt, size=(400, 400), size_hint=(None, None))
             base.runTouchApp(slave=True)
             popup_init.open()
             base.EventLoop.idle()
@@ -252,7 +251,7 @@ class PYDDT(App):
 
     def make_savedEcus(self):
         ecus = sorted(glob.glob(os.path.join(mod_globals.user_data_dir, 'savedCAR_*.csv')))
-        toggle = Button(text='Load savedCAR', id='open', background_color=(1,0,1,1), size_hint=(1, None), height=(fs * 3,  'dp'), on_press=lambda bt:self.OpenEcu(bt))
+        toggle = Button(text='Load savedCAR', id='open', size_hint=(1, None), height=(fs * 3,  'dp'), on_press=lambda bt:self.OpenEcu(bt))
         self.ecus_dropdown = DropDown(size_hint=(1, None), height=(fs,  'dp'))
         glay = MyGridLayout(cols=2, padding=(fs/2,  'dp'), height=(fs * 4,  'dp'), spadding=20, size_hint=(1, None))
         for s_ecus in ecus:
@@ -297,13 +296,22 @@ class PYDDT(App):
         mod_globals.opt_car = self.carbutton.text
         if mod_globals.opt_car != 'ALL CARS'and mod_globals.savedCAR != 'Select':self.stop()
 
+    def find_in_car(self, ins):
+        glay = GridLayout(cols=1, spadding=20, size_hint=(1, 1))
+        self.find = TextInput(text='', size_hint=(1, None), height=(fs * 3,  'dp'))
+        glay.add_widget(self.find)
+        glay.add_widget(Button(text='FIND', size_hint=(0.2, None), height=(fs * 3,  'dp'),on_release=lambda btn: self.popup_in_car(btn.text)))
+        self.popup = Popup(title='FIND CAR', content=glay, size=(Window.size[0]*0.8, Window.size[1]*0.5), size_hint=(None, None), auto_dismiss=True)
+        self.popup.open()
+
     def in_car(self):
-        glay = MyGridLayout(cols=2, padding=(fs/2,  'dp'), height=(fs * 4,  'dp'), spadding=20, size_hint=(1, None))
+        avtosd = self.avtos()
+        glay = MyGridLayout(cols=3, padding=(fs/2,  'dp'), height=(fs * 4,  'dp'), spadding=20, size_hint=(1, None))
         label1 = MyLabel(text='Car', halign='left', size_hint=(1, None), height=(fs * 3,  'dp'))
         label1.bind(size=label1.setter('text_size'))
         glay.add_widget(label1)
         self.dropdown = DropDown(size_hint=(1, None), height=(fs * 3,  'dp'))
-        avtosd = self.avtos()
+        glay.add_widget(Button(text='FIND', size_hint=(0.5, None), height=(fs * 3,  'dp'), on_press=self.find_in_car))
         for avto in avtosd:
             btn = Button(text=avto, size_hint_y=None, height=(fs * 3,  'dp'))
             btn.bind(on_release=lambda btn: self.popup_in_car(btn.text))
@@ -315,10 +323,17 @@ class PYDDT(App):
         return glay
 
     def popup_in_car(self, instance):
+        self.popup.dismiss()
         layout = MyGridLayout(cols=1, padding=(fs/2,  'dp'), height=(fs * 4,  'dp'), spadding=20, size_hint=(1.0, None))
         layout.bind(minimum_height=layout.setter('height'))
         avtosd = self.avtos()
         for key in avtosd:
+            if instance == 'FIND':
+                for car in avtosd[key]:
+                    if self.find.text.lower() in str(car).lower():
+                        btn = Button(text=car[3]+' : '+car[4][0], height=(fs * 3,  'dp'), size_hint_y=None)
+                        layout.add_widget(btn)
+                        btn.bind(on_release=lambda btn: self.press_car(btn.text))
             if key == instance:
                 for car in avtosd[key]:
                     btn = Button(text=car[3]+' : '+car[4][0], height=(fs * 3,  'dp'), size_hint_y=None)
@@ -326,7 +341,7 @@ class PYDDT(App):
                     btn.bind(on_release=lambda btn: self.press_car(btn.text))
         root = ScrollView(size_hint=(1, 1), do_scroll_x=False, pos_hint={'center_x': 0.5,'center_y': 0.5})
         root.add_widget(layout)
-        self.popup = Popup(title=instance, content=root, size=(Window.size[0], Window.size[1]), size_hint=(None, None), auto_dismiss=True)
+        self.popup = Popup(title=instance, content=root, size=(Window.size[0]*0.8, Window.size[1]*0.8), size_hint=(None, None), auto_dismiss=True)
         self.popup.open()
 
     def press_car(self, btn):
