@@ -332,6 +332,7 @@ class DDTScreen():
             self.decu.rotaryRunAlloved
         else:
             return
+        self.decu.elm.clear_cache()
         if self.decu.rotaryCommandsQueue.empty():
             for r in self.dReq.keys():
                 if self.dReq[r]:continue
@@ -869,7 +870,7 @@ class DDTScreen():
                 if xWidth > 40:
                     label = MyLabel(text=xText, id=xText, valign=xAlignment, color=xfcolor, bold=xfBold, italic=xfItalic, font_size=int(xfSize), halign='left', bgcolor=xcolor, size_hint=(None, None), size=(xrWidth, xrHeight), pos=(xrLeft, self.winfo_height-(xrTop+xrHeight)))
                     self.flayout.add_widget(label)
-                label_D = MyLabel(text=self.dValue[xText], valign=xAlignment, bgcolor=(0, 1, 0, 0.25), color=xfcolor, bold=xfBold, italic=xfItalic, font_size=int(xfSize), size_hint=(None, None), size=(xrWidth - xWidth, xrHeight), pos=(xrLeft + xWidth, self.winfo_height-(xrTop+xrHeight)))
+                label_D = MyLabel(text=self.dValue[xText], valign=xAlignment, bgcolor=(0, 1, 0, 1), color=xfcolor, bold=xfBold, italic=xfItalic, font_size=int(xfSize), size_hint=(None, None), size=(xrWidth - xWidth, xrHeight), pos=(xrLeft + xWidth, self.winfo_height-(xrTop+xrHeight)))
                 self.dLabels[xText] = label_D
                 self.flayout.add_widget(label_D)
                 self.needupdate = True

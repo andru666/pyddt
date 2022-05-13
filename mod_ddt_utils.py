@@ -127,6 +127,8 @@ def loadECUlist():
                             pjcl = []
                         eculist[Address]["targets"][href]['Projects'] = pjcl
                         ail = []
+                        Prot = target.findall("Protocol")
+                        eculist[Address]["targets"][href]['Protocol'] = Prot[0].text
                         ais = target.findall("ns0:AutoIdents", ns)
                         if len(ais)==0:
                             ais = target.findall("AutoIdents")
@@ -187,7 +189,6 @@ class ddtProjects():
                             cartype['addr'] = addressing[0].text
                         else:
                             cartype['addr'] = defaddrsheme
-
 
                         if 'code' in pr.attrib:
                             cartype['code'] = pr.attrib['code']

@@ -1,7 +1,7 @@
 # -*- coding: utf-8 -*-
 import sys, os, operator, ast, gc, time, pickle
 
-import mod_ddt_utils, mod_globals, mod_db_manager, mod_scan_ecus, mod_ddt_ecu
+import mod_ddt_utils, mod_globals, mod_db_manager, mod_scan_ecus, mod_ddt_ecu, mod_elm
 from shutil import copyfile
 import xml.etree.ElementTree as et
 from xml.dom.minidom import parse
@@ -184,6 +184,10 @@ class DDT():
             return
         resizeFont = False
 
+def DDT_START(filterText):
+    while 1:
+        DDTLauncher(filterText).run()
+
 class DDTLauncher(App):
     def __init__(self, filterText=None):
         global fs
@@ -232,7 +236,7 @@ class DDTLauncher(App):
                       'foreground':"#000000",
                       'highlightbackground':"#d9d9d9"}
         self.fltBtnClick()
-        
+
         if mod_globals.savedCAR != 'Select':
             self.LoadCarFile(mod_globals.savedCAR)
         else:
@@ -249,18 +253,17 @@ class DDTLauncher(App):
         self.running = True
 
     def finish(self, instance):
-        self.stop()
+        exit()
     
     def build(self):
-        
         self.getDumpListByXml()
         p = 0
         if not mod_globals.opt_demo: height_g = fs*6*len([v for v in range(len(self.carecus)) if self.carecus[v]['xml'] != ''])
         else: height_g = fs*6*len(self.carecus)
         if height_g == 0: height_g = 200
-        layout = GridLayout(cols=1, size_hint=(None, None),size=(fs*90, ((fs*8)+height_g)))
+        layout = GridLayout(cols=1, size_hint=(None, None),size=(Window.size[0], ((fs*8)+height_g)))
         layout.add_widget(self.make_savedECU())
-        box = GridLayout(cols=9, spacing=3, size_hint=(1, None), height=height_g)
+        box = GridLayout(cols=9, spacing=5, size_hint=(1, None), height=height_g)
         box.bind(minimum_height=box.setter('height'))
         cols = ['addr', 'iso8', 'xid', 'rid', 'prot', 'type', 'name', 'xml', 'dump']
         Cols = dict(addr=['Addr', (1,0,0,1)], iso8=['ISO8', (1,0,0,1)], xid=['XId', (1,0,0,1)], rid=['RId', (1,0,0,1)], prot=['Protocol', (1,0,0,1)], type=['Type', (1,0,0,1)], name=['Name', (1,0,0,1)], xml=['XML', (1,0,0,1)], dump=['dump', (1,0,0,1)])
@@ -314,10 +317,10 @@ class DDTLauncher(App):
             self.MyPopup(content='Selected ECU is undefined. Please scan it first.')
             return None
         lbltxt = Label(text='Open Screens', font_size=20)
-        popup_init = Popup(title='Loading', content=lbltxt, size_hint=(1, 1))
-        popup_init.open()
+        self.popup_init_screens = Popup(title='Loading', content=lbltxt, size_hint=(1, 1))
+        self.popup_init_screens.open()
         base.EventLoop.idle()
-        popup_init.dismiss()
+        self.popup_init_screens.dismiss()
         self.OpenECUScreens(ecu)
         return
 
@@ -478,7 +481,7 @@ class DDTLauncher(App):
                 if ce['xml'][:-4] in ec['xml']:
                     ec['dump'] = ce['dump']
             self.renewEcuList()
-            self.SaveBtnClick()
+            self.SaveBtnClick(self.label.text)
 
         if not mod_db_manager.file_in_ddt(decu.ecufname):
             return None
@@ -499,13 +502,52 @@ class DDTLauncher(App):
             else:
                 self.ecutree.append(dict(text=ecu['addr'], values=columns, tag=''))
 
+    def guiSaveDump(self,decu):
+
+        xmlname = decu.ecufname
+        if xmlname.upper().endswith('.XML'):
+            xmlname = xmlname[:-4]
+
+        if '/' in xmlname:
+            xmlname = xmlname.split('/')[-1]
+        else:
+            xmlname = xmlname.split('\\')[-1]
+        dumpFileName = str(int(time.time())) + '_' + xmlname + '.txt'
+        dumpPath = './dumps/' + dumpFileName
+        df = open(dumpPath, 'wt')
+
+        decu.elm.clear_cache()
+
+        max = len(decu.requests.keys())
+
+        progressValue = 1
+
+        im = ' from ' + str(max)
+        i = 0
+        for request in decu.requests.values():
+            i = i + 1
+            progressValue = progressValue + 1
+
+            sys.stdout.flush()
+            if request.SentBytes[:2] in mod_elm.AllowedList + ['17', '19']:
+                if request.SentBytes[:2] == '19' and request.SentBytes[:2] != '1902':
+                    continue
+                pos = chr(ord(request.SentBytes[0]) + 4) + request.SentBytes[1]
+                rsp = decu.elm.request(request.SentBytes, pos, False)
+                if ':' in rsp: continue
+                df.write('%s:%s\n' % (request.SentBytes, rsp))
+
+        df.close()
+
+        return dumpFileName
+
     def LoadCarFile(self, filename):
         filename = os.path.join(mod_globals.user_data_dir, filename)
         if not os.path.isfile(filename):
             return
         with open(filename, 'r') as fin:
             lines = fin.read().splitlines()
-
+ 
         self.carecus = []
         for l in lines:
             l = l.strip()
@@ -589,6 +631,7 @@ class DDTLauncher(App):
             pass
         tmpL = []
         self.carecus = []
+        
         for e in self.addr.alist:
             if e['Address']==0:
                 self.v_pcan = (e['baudRate'])
@@ -663,6 +706,9 @@ class DDTLauncher(App):
             ecu['xml'] = ''
             ecu['dump'] = ''
             ecu['ses'] = ''
+            self.dv_addr = ecu['addr']
+            self.getXmlListByProj()
+            if len(self.v_xmlList) == 0: continue
             self.carecus.append(ecu)
         self.renewEcuList()
 

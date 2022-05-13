@@ -244,7 +244,7 @@ class PYDDT(App):
             popup_init.dismiss()
             base.stopTouchApp()
             base.EventLoop.window.canvas.clear()
-            mod_ddt.DDTLauncher(mod_globals.opt_car).run()
+            mod_ddt.DDT_START(mod_globals.opt_car)
         else:
             popup.open()
             return
@@ -278,7 +278,7 @@ class PYDDT(App):
         if 'wifi' in self.mainbutton.text.lower():
             mod_globals.opt_port = '192.168.0.10:35000'
         else:
-            bt_device = self.mainbutton.text.split('>')
+            bt_device = self.mainbutton.text.rsplit('>', 1)
             if mod_globals.os != 'android':
                 try:
                     mod_globals.opt_port = bt_device[1]
@@ -323,7 +323,10 @@ class PYDDT(App):
         return glay
 
     def popup_in_car(self, instance):
-        self.popup.dismiss()
+        try:
+            self.popup.dismiss()
+        except:
+            pass
         layout = MyGridLayout(cols=1, padding=(fs/2,  'dp'), height=(fs * 4,  'dp'), spadding=20, size_hint=(1.0, None))
         layout.bind(minimum_height=layout.setter('height'))
         avtosd = self.avtos()
